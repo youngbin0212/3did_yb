@@ -1,4 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Gate,0.046,7.024,6.978,14,0,0,0,0,0,0,0,0,False,0.0
-5,Sunshine Cleanup,7.024,78.268,71.244,9,2,8,7,14,0,7,0,0,True,0.2
-6,Gate,80.83,82.363,1.533,14,0,0,0,0,0,0,0,0,False,0.0
