@@ -163,7 +163,21 @@ SHAPE_COLORS = {
     "yellow": ( 35, 200, 210),
     "purple": (175,  55, 160),
     "grey":   (165, 165, 165),
+    # Find-task distractors — visually close to the target colours so the
+    # user really has to look (rather than spotting them by hue alone).
+    "lime":    ( 60, 220, 175),   # yellow-green (≈ yellow AND ≈ green)
+    "orange":  ( 35, 140, 235),   # orange        (≈ red)
+    "pink":    (155, 140, 235),   # salmon pink   (≈ red)
+    "crimson": ( 60,  55, 180),   # dark red      (≈ red)
+    "olive":   ( 40, 130, 150),   # dull yellow   (≈ yellow)
+    "teal":    (130, 145,  55),   # green-blue    (≈ green)
+    "mint":    (140, 215, 140),   # light green   (≈ green)
 }
+
+# Colors used as random pool fillers when a task doesn't specify its own
+# `pool_colors`. We exclude the find-distractor colors so they only ever
+# show up in tasks that explicitly opt into them.
+DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 
 # ──────────────────────────────────────────────
 #  Tasks  (target lego arrangements; reference images in tasks/)
@@ -203,39 +217,50 @@ TASK_DEFS = [
             (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
         ],
     },
-    # Task 3 — Cross / figure. Blue head & feet caps, blue arms with a red
-    # heart, green body filling the corners. (11 slots)
+    # Task 3 — Find Red. A small red heart. A few red hint bricks are
+    # pre-placed in the drop zone; the rest must be located in the
+    # cluttered pool using F mode. Pool max = 4 colors (target + 3
+    # RGB-similar distractors).
     {
-        "name": "Cross",
+        "name": "Find Red",
         "file": "task3.png",
-        "cols": 7, "rows": 4,
-        "layout": [
-            # row 0 — blue cap (head)
-                                                            (3,0,"blue"),
-            # row 1 — blue arms + red center heart
-            (0,1,"blue"),                                  (3,1,"red"),                                  (6,1,"blue"),
-            # row 2 — green body in two 3-wide blocks (col 3 stays empty)
-            (0,2,"green"),(1,2,"green"),(2,2,"green"),                  (4,2,"green"),(5,2,"green"),(6,2,"green"),
-            # row 3 — blue cap (feet)
-                                                            (3,3,"blue"),
-        ],
-    },
-    # Task 4 — Pyramid. Stepped pyramid: 1 green peak, 3 red, 5 yellow,
-    # 5 green base. (14 slots)
-    {
-        "name": "Pyramid",
-        "file": "task4.png",
         "cols": 5, "rows": 4,
         "layout": [
-            # row 0 — peak (1 green)
-                                          (2,0,"green"),
-            # row 1 — red (3)
-                            (1,1,"red"),  (2,1,"red"),  (3,1,"red"),
-            # row 2 — yellow (5)
-            (0,2,"yellow"),(1,2,"yellow"),(2,2,"yellow"),(3,2,"yellow"),(4,2,"yellow"),
-            # row 3 — green base (5)
-            (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
+            # row 0 — heart shoulders (two 2-wide humps with a gap)
+            (0,0,"red"),(1,0,"red"),                (3,0,"red"),(4,0,"red"),
+            # row 1 — heart body (full row)
+            (0,1,"red"),(1,1,"red"),(2,1,"red"),(3,1,"red"),(4,1,"red"),
+            # row 2 — taper (3 wide, centered)
+                          (1,2,"red"),(2,2,"red"),(3,2,"red"),
+            # row 3 — point
+                                        (2,3,"red"),
         ],
+        "pre_placed": [
+            # two outer shoulders + point as hint
+            (0,0,"red"),                                              (4,0,"red"),
+                                          (2,3,"red"),
+        ],
+        "pool_colors": ["red", "orange", "pink", "crimson"],
+    },
+    # Task 4 — Find Two (green + yellow). Two-color layout split down
+    # the middle (yellow left half, green right half). The pool mixes
+    # both targets with RGB-similar distractors: lime sits between
+    # yellow and green, olive leans yellow, teal & mint lean green.
+    {
+        "name": "Find Two",
+        "file": "task4.png",
+        "cols": 4, "rows": 3,
+        "layout": [
+            (0,0,"yellow"),(1,0,"yellow"),(2,0,"green"),(3,0,"green"),
+            (0,1,"yellow"),(1,1,"yellow"),(2,1,"green"),(3,1,"green"),
+            (0,2,"yellow"),(1,2,"yellow"),(2,2,"green"),(3,2,"green"),
+        ],
+        "pre_placed": [
+            # corner hints — one yellow corner per yellow side, one green corner per green side
+            (0,0,"yellow"),                                  (3,0,"green"),
+            (0,2,"yellow"),                                  (3,2,"green"),
+        ],
+        "pool_colors": ["yellow", "green", "lime", "olive", "teal", "mint"],
     },
     # Task 5 — Cleanup. The structure starts pre-built with intruder bricks
     # of the wrong color. The user is expected to:
@@ -258,19 +283,34 @@ TASK_DEFS = [
             (0,2,"yellow"), (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"),
         ],
     },
-    # Task 6 — Sunshine. A yellow burst with a red core. Demonstrates F
-    # (find): hover any yellow brick in the cluttered pool and pinch F to
-    # instantly see every yellow piece across the workspace, then drag
-    # them into place one at a time.
+    # Task 6 — Sunshine Cleanup. Same yellow burst with a red core as
+    # Sunshine, but pre-built almost entirely WRONG: 6 of the 9 slots
+    # hold intruders whose colours are RGB-similar to the target. Lime
+    # and olive masquerade as yellow; orange and crimson masquerade as
+    # red. The pool also mixes in those confusing colours, so plain
+    # eyeballing fails — the user has to lean on F mode (highlight
+    # same-kind) to tell true yellow from lime/olive, etc., before
+    # X-deleting and dragging in the correct piece. Strictly harder
+    # than Task 5: more intruders (6 vs 3) AND similar-hue distractors.
+    # Grid stays 5x3 so the brick size doesn't shrink.
     {
-        "name": "Sunshine",
+        "name": "Sunshine Cleanup",
         "file": "task6.png",
         "cols": 5, "rows": 3,
         "layout": [
                             (1,0,"yellow"), (2,0,"yellow"), (3,0,"yellow"),
             (0,1,"yellow"),                 (2,1,"red"),                    (4,1,"yellow"),
-                            (1,2,"yellow"), (2,2,"yellow"), (3,2,"yellow"),
+                            (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"),
         ],
+        "pre_placed": [
+            # (2,1) is left as the correct red — a hint anchor so the
+            # user can compare the true target hue against the crimson
+            # intruder at (2,2) and the orange intruder at (0,1).
+                            (1,0,"lime"),   (2,0,"yellow"), (3,0,"olive"),
+            (0,1,"orange"),                 (2,1,"red"),                    (4,1,"lime"),
+                            (1,2,"yellow"), (2,2,"crimson"),(3,2,"yellow"),
+        ],
+        "pool_colors": ["yellow", "red", "lime", "olive", "orange", "pink", "crimson"],
     },
 ]
 
@@ -401,7 +441,20 @@ def classify_left(lm) -> str:
     return "unknown"
 
 def pinch_dist(lm) -> float:
-    return float(np.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y))
+    """3-D distance between thumb tip (4) and index tip (8).
+
+    Adding z (depth) on top of x,y is what makes pinch detection robust
+    to camera angle: when the user's hand is rotated so the thumb passes
+    behind or in front of the index, the two fingertips can project to
+    nearly the same 2-D point — a pure 2-D distance would treat that as
+    a pinch even though the fingers are not actually touching. z fills
+    that gap because mediapipe reports depth relative to the wrist on
+    roughly the same normalized scale as x.
+    """
+    dx = lm[4].x - lm[8].x
+    dy = lm[4].y - lm[8].y
+    dz = lm[4].z - lm[8].z
+    return float((dx * dx + dy * dy + dz * dz) ** 0.5)
 
 # ──────────────────────────────────────────────
 #  Metrics logger
@@ -628,12 +681,17 @@ class App:
     # they clearly separate. Stops the "flicker" you get with a single
     # threshold and lets the user hold a grab without trembling.
     PINCH_ON  = 0.075
-    PINCH_OFF = 0.115
+    PINCH_OFF = 0.090
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    # Cursor sits above the raw fingertip. mediapipe's index-tip landmark
-    # tends to land below where the user perceives "where I'm pointing"
-    # (camera perspective + finger curvature), so we bias the pointer up.
-    PTR_Y_OFFSET = 56
+    HISTORY_MAX = 5       # number of undo steps Z mode can roll back
+    # Cursor is a weighted blend of index tip (8) and thumb tip (4).
+    # 50/50 midpoint is geometrically the "pinch point" (stable through
+    # the pinch motion), but users instinctively aim with the INDEX tip,
+    # so a pure midpoint feels biased toward the thumb side. We weight
+    # toward the index to put the cursor near where the user aims while
+    # still benefiting from the midpoint's stability under pinch.
+    PTR_Y_OFFSET = 24
+    INDEX_WEIGHT = 0.30   # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -658,7 +716,11 @@ class App:
         self.task_idx       = 0
         self.shapes:        list[Shape] = []
         self.clipboard:     Optional[Shape] = None
-        self._delete_stack: list[Shape] = []
+        # Full-state undo history. Each entry is a snapshot of all
+        # shapes' (alive, slot, px, py), the clipboard reference and
+        # _next_id. Z mode pops one entry per pinch to roll the world
+        # back. Bounded by HISTORY_MAX so the buffer doesn't grow.
+        self._history:      list[dict] = []
         self.mode           = "open"
         self._buf:          list[str] = []
         self._last_left     = "unknown"
@@ -778,6 +840,71 @@ class App:
         x1, y1, x2, y2 = self._slot_rect(col, row)
         return (x1 + x2) // 2, (y1 + y2) // 2
 
+    def _find_pool_free_pos(self) -> tuple:
+        """Return a (px, py) inside the task workspace that doesn't overlap
+        any currently-alive pool brick. Used when restoring a deleted brick
+        via undo so it doesn't pile on top of an in-slot brick."""
+        bw, bh = self.brick_w, self.brick_h
+        # Try a generous grid first; pick the first cell with no overlap.
+        for cx, cy in self._build_scatter_positions(24):
+            px = TW_X + cx
+            py = TW_Y + cy
+            clash = False
+            for s in self.shapes:
+                if not s.alive or s.slot is not None:
+                    continue
+                if abs(s.px - px) < bw * 0.9 and abs(s.py - py) < bh * 0.9:
+                    clash = True
+                    break
+            if not clash:
+                return px, py
+        # Fallback: random spot inside TW (shouldn't normally hit this).
+        px = TW_X + random.randint(TW_INNER_PAD + bw // 2,
+                                   max(TW_INNER_PAD + bw // 2,
+                                       TW_W - TW_INNER_PAD - bw // 2))
+        py = TW_Y + random.randint(TW_HEADER_H + bh // 2,
+                                   max(TW_HEADER_H + bh // 2,
+                                       TW_H - bh // 2 - 6))
+        return px, py
+
+    # ── undo history (full-state snapshots) ────
+    def _snapshot(self) -> dict:
+        """Capture enough state to restore the world to this moment.
+        Used by Z mode to roll back drag / paste / delete actions."""
+        return {
+            "shapes": [(s.id, s.alive, s.slot, s.px, s.py) for s in self.shapes],
+            "clipboard_id": self.clipboard.id if self.clipboard else None,
+            "next_id": self._next_id,
+        }
+
+    def _push_history(self):
+        """Save the current state, dropping the oldest if over the cap."""
+        self._history.append(self._snapshot())
+        if len(self._history) > self.HISTORY_MAX:
+            self._history.pop(0)
+
+    def _restore_snapshot(self, snap: dict):
+        """Roll the world back to a previously captured state. Any shapes
+        created after the snapshot (e.g. a paste) are dropped; existing
+        shapes have their alive/slot/position restored."""
+        valid_ids = {sid for sid, *_ in snap["shapes"]}
+        # Drop shapes that didn't exist at snapshot time.
+        self.shapes = [s for s in self.shapes if s.id in valid_ids]
+        by_id = {s.id: s for s in self.shapes}
+        for sid, alive, slot, px, py in snap["shapes"]:
+            s = by_id.get(sid)
+            if s is None:
+                continue
+            s.alive = alive
+            s.slot  = slot
+            s.px    = px
+            s.py    = py
+        self.clipboard = by_id.get(snap["clipboard_id"])
+        self._next_id  = snap["next_id"]
+        # Drag state and find-highlight don't survive a rollback.
+        self.dragging   = None
+        self.highlighted.clear()
+
     def _build_scatter_positions(self, n: int):
         """Lay out n brick centers in a grid that fills the task workspace.
         Grid columns/rows are chosen to roughly match the workspace aspect
@@ -847,7 +974,7 @@ class App:
 
         self._configure_slots()
         self.shapes = []
-        self._delete_stack = []
+        self._history      = []
         self.clipboard = None
         self.highlighted.clear()
 
@@ -881,9 +1008,13 @@ class App:
         positions = self._build_scatter_positions(pool_size)
 
         pool = list(needed)
-        all_colors = list(SHAPE_COLORS.keys())
+        # Find-task tasks specify their own narrow distractor palette
+        # (target + visually-similar colors). Other tasks fall back to
+        # the default 6-colour set, so the new distractor colours never
+        # leak into Gate / Bridge / Cleanup / Sunshine etc.
+        allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
         while len(pool) < pool_size:
-            pool.append(random.choice(all_colors))
+            pool.append(random.choice(allowed))
         pool = pool[:pool_size]
         random.shuffle(pool)
 
@@ -973,8 +1104,8 @@ class App:
                     latency = ((time.time() - self._gesture_first_t)
                                if self._gesture_first_t else 0.0)
                     old_mode = self.mode
-                    if new == "open" and self.mode != "open":
-                        self.highlighted.clear()
+                    # Clear the F-mode "find" highlight on any mode change.
+                    self.highlighted.clear()
                     self.mode = new
                     self.metrics.log_mode_change(old_mode, new, latency)
                     self._pending_gesture = None
@@ -1019,8 +1150,8 @@ class App:
             return f"Find {self.hovered.kind} pieces"
         if self.mode == "X" and self.hovered is not None:
             return f"Delete '{self.hovered.label}'"
-        if self.mode == "Z" and self._delete_stack:
-            return f"Undo (stack: {len(self._delete_stack)})"
+        if self.mode == "Z" and self._history:
+            return f"Undo (stack: {len(self._history)})"
         return ""
 
     # ── execute pinch ─────────────────────────
@@ -1038,6 +1169,7 @@ class App:
                                         subaction="copy",
                                         target=obj.label, kind=obj.kind)
             elif self.clipboard and self._pinch_pt:
+                self._push_history()
                 new       = copy.copy(self.clipboard)
                 new.id    = self._next_id
                 # bbox center sits slightly above the visual body center
@@ -1051,10 +1183,15 @@ class App:
                     cx, cy, brick_w=new.w, brick_h=new.h
                 )
                 if snap is not None:
-                    # evict any current occupant of the target slot
+                    # evict any current occupant of the target slot —
+                    # also relocate it to the pool so its visual position
+                    # matches its (now slot-less) logical state (see the
+                    # drag-eviction comment above for the bug this fixes).
                     for other in self.shapes:
                         if other.alive and other.slot == snap:
                             other.slot = None
+                            fx, fy = self._find_pool_free_pos()
+                            other.px, other.py = float(fx), float(fy)
                     sx, sy   = self._slot_center(*snap)
                     new.px   = float(sx)
                     new.py   = float(sy)
@@ -1100,19 +1237,19 @@ class App:
                                         count=len(self.highlighted))
         elif self.mode == "X":
             if obj:
+                self._push_history()
                 obj.alive = False
                 obj.slot  = None
-                self._delete_stack.append(obj)
                 self.highlighted.discard(obj.id)
                 self._notify(f"Deleted: {obj.label}")
                 self.metrics.log_action("X", latency,
                                         target=obj.label, kind=obj.kind)
         elif self.mode == "Z":
-            if self._delete_stack:
-                r       = self._delete_stack.pop()
-                r.alive = True
-                self._notify(f"Restored: {r.label}")
-                self.metrics.log_action("Z", latency, target=r.label)
+            if self._history:
+                self._restore_snapshot(self._history.pop())
+                self._notify(f"Undo (steps left: {len(self._history)})")
+                self.metrics.log_action("Z", latency,
+                                        remaining=len(self._history))
 
     # ── update ───────────────────────────────
 
@@ -1138,8 +1275,10 @@ class App:
         self._push(left_g)
 
         if r_lm:
-            ix = r_lm[8].x * W
-            iy = r_lm[8].y * H - self.PTR_Y_OFFSET
+            # Pointer = weighted blend of index tip (8) and thumb tip (4).
+            w = self.INDEX_WEIGHT
+            ix = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W
+            iy = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
             self.r_ptr = (ix, iy)
 
             # Hysteresis: lower threshold to engage, higher to release.
@@ -1162,6 +1301,9 @@ class App:
                     if not self._prev_pin:
                         hit = self._hit(ix, iy)
                         if hit:
+                            # Snapshot BEFORE we mutate the picked-up
+                            # brick, so undo can fully rewind the drag.
+                            self._push_history()
                             self.dragging     = hit
                             hit.slot          = None
                             self._drag_offset = (hit.px - ix, hit.py - iy)
@@ -1175,6 +1317,19 @@ class App:
                             for other in self.shapes:
                                 if other.id != self.dragging.id and other.slot == s:
                                     other.slot = None
+                                    # Send the displaced brick back to the
+                                    # pool so its visual position matches
+                                    # its (now slot-less) logical state.
+                                    # Otherwise it keeps sitting at the
+                                    # slot's coordinates; if the user
+                                    # later X-deletes whatever displaced
+                                    # it, the original brick LOOKS like
+                                    # it's in the slot but actually has
+                                    # slot=None, so the correct-state
+                                    # green never turns on and the task
+                                    # can't complete.
+                                    fx, fy = self._find_pool_free_pos()
+                                    other.px, other.py = float(fx), float(fy)
                             self.dragging.slot = s
                             cx, cy = self._slot_center(*s)
                             self.dragging.px = float(cx)
@@ -1591,7 +1746,8 @@ class App:
             paste_target = is_hov and self._is_paste_target(s)
             bw = (3 if is_drag else
                   3 if mode_action else
-                  2 if (is_hov or is_hl or in_slot) else 1)
+                  3 if is_hl else
+                  2 if (is_hov or in_slot) else 1)
             border = None
             if is_drag:
                 border = (255, 255, 255)
@@ -1602,7 +1758,9 @@ class App:
             elif is_hov:
                 border = _shade(col, 0.45)
             elif is_hl:
-                border = _shade(col, 0.45)
+                # F-mode "find" highlight: bright hot pink so highlighted
+                # bricks pop visibly regardless of the brick's own color.
+                border = (180, 105, 255)
 
             draw_lego(frame, int(s.px), int(s.py), s.w, s.h, col,
                       alpha_body=alpha, border=border, border_w=bw,

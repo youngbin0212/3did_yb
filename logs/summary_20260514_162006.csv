@@ -1,0 +1,5 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Gate,0.053,4.352,4.299,14,0,0,0,0,0,0,0,0,False,0.0
+2,Find Red,4.353,31.511,27.158,13,0,10,2,11,2,0,0,0,True,0.0
+3,Find Two,34.02,98.76,64.74,12,0,10,6,14,2,0,0,0,True,0.0
+4,Cleanup,101.268,175.212,73.944,10,1,4,7,8,0,6,4,0,False,0.2

@@ -1,0 +1,10 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Gate,0.043,37.092,37.049,14,0,0,2,0,6,0,0,0,False,0.0
+2,Find Yellow,37.092,42.203,5.111,9,0,0,0,0,0,1,0,0,False,0.0
+3,Find Red,42.203,42.703,0.5,13,0,0,0,0,0,0,0,0,False,0.0
+3,Find Red,42.704,43.701,0.997,13,0,0,0,0,0,0,0,0,False,0.0
+3,Find Red,43.701,44.444,0.743,13,0,0,0,0,0,0,0,0,False,0.0
+3,Find Red,44.444,45.685,1.241,13,0,0,0,0,0,0,0,0,False,0.0
+3,Find Red,45.685,46.564,0.879,13,0,0,0,0,0,0,0,0,False,0.0
+3,Find Red,46.564,49.713,3.149,13,0,0,0,0,0,0,0,0,False,0.0
+2,Find Yellow,49.713,56.155,6.442,9,0,0,0,0,0,0,0,0,False,0.0

@@ -163,7 +163,21 @@ SHAPE_COLORS = {
     "yellow": ( 35, 200, 210),
     "purple": (175,  55, 160),
     "grey":   (165, 165, 165),
+    # Find-task distractors — visually close to the target colours so the
+    # user really has to look (rather than spotting them by hue alone).
+    "lime":    ( 60, 220, 175),   # yellow-green (≈ yellow AND ≈ green)
+    "orange":  ( 35, 140, 235),   # orange        (≈ red)
+    "pink":    (155, 140, 235),   # salmon pink   (≈ red)
+    "crimson": ( 60,  55, 180),   # dark red      (≈ red)
+    "olive":   ( 40, 130, 150),   # dull yellow   (≈ yellow)
+    "teal":    (130, 145,  55),   # green-blue    (≈ green)
+    "mint":    (140, 215, 140),   # light green   (≈ green)
 }
+
+# Colors used as random pool fillers when a task doesn't specify its own
+# `pool_colors`. We exclude the find-distractor colors so they only ever
+# show up in tasks that explicitly opt into them.
+DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 
 # ──────────────────────────────────────────────
 #  Tasks  (target lego arrangements; reference images in tasks/)
@@ -203,39 +217,50 @@ TASK_DEFS = [
             (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
         ],
     },
-    # Task 3 — Cross / figure. Blue head & feet caps, blue arms with a red
-    # heart, green body filling the corners. (11 slots)
+    # Task 3 — Find Red. A small red heart. A few red hint bricks are
+    # pre-placed in the drop zone; the rest must be located in the
+    # cluttered pool using F mode. Pool max = 4 colors (target + 3
+    # RGB-similar distractors).
     {
-        "name": "Cross",
+        "name": "Find Red",
         "file": "task3.png",
-        "cols": 7, "rows": 4,
-        "layout": [
-            # row 0 — blue cap (head)
-                                                            (3,0,"blue"),
-            # row 1 — blue arms + red center heart
-            (0,1,"blue"),                                  (3,1,"red"),                                  (6,1,"blue"),
-            # row 2 — green body in two 3-wide blocks (col 3 stays empty)
-            (0,2,"green"),(1,2,"green"),(2,2,"green"),                  (4,2,"green"),(5,2,"green"),(6,2,"green"),
-            # row 3 — blue cap (feet)
-                                                            (3,3,"blue"),
-        ],
-    },
-    # Task 4 — Pyramid. Stepped pyramid: 1 green peak, 3 red, 5 yellow,
-    # 5 green base. (14 slots)
-    {
-        "name": "Pyramid",
-        "file": "task4.png",
         "cols": 5, "rows": 4,
         "layout": [
-            # row 0 — peak (1 green)
-                                          (2,0,"green"),
-            # row 1 — red (3)
-                            (1,1,"red"),  (2,1,"red"),  (3,1,"red"),
-            # row 2 — yellow (5)
-            (0,2,"yellow"),(1,2,"yellow"),(2,2,"yellow"),(3,2,"yellow"),(4,2,"yellow"),
-            # row 3 — green base (5)
-            (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
+            # row 0 — heart shoulders (two 2-wide humps with a gap)
+            (0,0,"red"),(1,0,"red"),                (3,0,"red"),(4,0,"red"),
+            # row 1 — heart body (full row)
+            (0,1,"red"),(1,1,"red"),(2,1,"red"),(3,1,"red"),(4,1,"red"),
+            # row 2 — taper (3 wide, centered)
+                          (1,2,"red"),(2,2,"red"),(3,2,"red"),
+            # row 3 — point
+                                        (2,3,"red"),
         ],
+        "pre_placed": [
+            # two outer shoulders + point as hint
+            (0,0,"red"),                                              (4,0,"red"),
+                                          (2,3,"red"),
+        ],
+        "pool_colors": ["red", "orange", "pink", "crimson"],
+    },
+    # Task 4 — Find Two (green + yellow). Two-color layout split down
+    # the middle (yellow left half, green right half). The pool mixes
+    # both targets with RGB-similar distractors: lime sits between
+    # yellow and green, olive leans yellow, teal & mint lean green.
+    {
+        "name": "Find Two",
+        "file": "task4.png",
+        "cols": 4, "rows": 3,
+        "layout": [
+            (0,0,"yellow"),(1,0,"yellow"),(2,0,"green"),(3,0,"green"),
+            (0,1,"yellow"),(1,1,"yellow"),(2,1,"green"),(3,1,"green"),
+            (0,2,"yellow"),(1,2,"yellow"),(2,2,"green"),(3,2,"green"),
+        ],
+        "pre_placed": [
+            # corner hints — one yellow corner per yellow side, one green corner per green side
+            (0,0,"yellow"),                                  (3,0,"green"),
+            (0,2,"yellow"),                                  (3,2,"green"),
+        ],
+        "pool_colors": ["yellow", "green", "lime", "olive", "teal", "mint"],
     },
     # Task 5 — Cleanup. The structure starts pre-built with intruder bricks
     # of the wrong color. The user is expected to:
@@ -628,12 +653,16 @@ class App:
     # they clearly separate. Stops the "flicker" you get with a single
     # threshold and lets the user hold a grab without trembling.
     PINCH_ON  = 0.075
-    PINCH_OFF = 0.115
+    PINCH_OFF = 0.090
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    # Cursor sits above the raw fingertip. mediapipe's index-tip landmark
-    # tends to land below where the user perceives "where I'm pointing"
-    # (camera perspective + finger curvature), so we bias the pointer up.
-    PTR_Y_OFFSET = 56
+    # Cursor is a weighted blend of index tip (8) and thumb tip (4).
+    # 50/50 midpoint is geometrically the "pinch point" (stable through
+    # the pinch motion), but users instinctively aim with the INDEX tip,
+    # so a pure midpoint feels biased toward the thumb side. We weight
+    # toward the index to put the cursor near where the user aims while
+    # still benefiting from the midpoint's stability under pinch.
+    PTR_Y_OFFSET = 24
+    INDEX_WEIGHT = 0.30   # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -778,6 +807,33 @@ class App:
         x1, y1, x2, y2 = self._slot_rect(col, row)
         return (x1 + x2) // 2, (y1 + y2) // 2
 
+    def _find_pool_free_pos(self) -> tuple:
+        """Return a (px, py) inside the task workspace that doesn't overlap
+        any currently-alive pool brick. Used when restoring a deleted brick
+        via undo so it doesn't pile on top of an in-slot brick."""
+        bw, bh = self.brick_w, self.brick_h
+        # Try a generous grid first; pick the first cell with no overlap.
+        for cx, cy in self._build_scatter_positions(24):
+            px = TW_X + cx
+            py = TW_Y + cy
+            clash = False
+            for s in self.shapes:
+                if not s.alive or s.slot is not None:
+                    continue
+                if abs(s.px - px) < bw * 0.9 and abs(s.py - py) < bh * 0.9:
+                    clash = True
+                    break
+            if not clash:
+                return px, py
+        # Fallback: random spot inside TW (shouldn't normally hit this).
+        px = TW_X + random.randint(TW_INNER_PAD + bw // 2,
+                                   max(TW_INNER_PAD + bw // 2,
+                                       TW_W - TW_INNER_PAD - bw // 2))
+        py = TW_Y + random.randint(TW_HEADER_H + bh // 2,
+                                   max(TW_HEADER_H + bh // 2,
+                                       TW_H - bh // 2 - 6))
+        return px, py
+
     def _build_scatter_positions(self, n: int):
         """Lay out n brick centers in a grid that fills the task workspace.
         Grid columns/rows are chosen to roughly match the workspace aspect
@@ -881,9 +937,13 @@ class App:
         positions = self._build_scatter_positions(pool_size)
 
         pool = list(needed)
-        all_colors = list(SHAPE_COLORS.keys())
+        # Find-task tasks specify their own narrow distractor palette
+        # (target + visually-similar colors). Other tasks fall back to
+        # the default 6-colour set, so the new distractor colours never
+        # leak into Gate / Bridge / Cleanup / Sunshine etc.
+        allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
         while len(pool) < pool_size:
-            pool.append(random.choice(all_colors))
+            pool.append(random.choice(allowed))
         pool = pool[:pool_size]
         random.shuffle(pool)
 
@@ -973,8 +1033,8 @@ class App:
                     latency = ((time.time() - self._gesture_first_t)
                                if self._gesture_first_t else 0.0)
                     old_mode = self.mode
-                    if new == "open" and self.mode != "open":
-                        self.highlighted.clear()
+                    # Clear the F-mode "find" highlight on any mode change.
+                    self.highlighted.clear()
                     self.mode = new
                     self.metrics.log_mode_change(old_mode, new, latency)
                     self._pending_gesture = None
@@ -1111,6 +1171,12 @@ class App:
             if self._delete_stack:
                 r       = self._delete_stack.pop()
                 r.alive = True
+                r.slot  = None
+                # Send the restored brick back to a free pool spot so it
+                # never visually overlaps an in-slot brick (which would
+                # hide the green "correct" highlight underneath).
+                fx, fy = self._find_pool_free_pos()
+                r.px, r.py = float(fx), float(fy)
                 self._notify(f"Restored: {r.label}")
                 self.metrics.log_action("Z", latency, target=r.label)
 
@@ -1138,8 +1204,10 @@ class App:
         self._push(left_g)
 
         if r_lm:
-            ix = r_lm[8].x * W
-            iy = r_lm[8].y * H - self.PTR_Y_OFFSET
+            # Pointer = weighted blend of index tip (8) and thumb tip (4).
+            w = self.INDEX_WEIGHT
+            ix = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W
+            iy = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
             self.r_ptr = (ix, iy)
 
             # Hysteresis: lower threshold to engage, higher to release.
@@ -1591,7 +1659,8 @@ class App:
             paste_target = is_hov and self._is_paste_target(s)
             bw = (3 if is_drag else
                   3 if mode_action else
-                  2 if (is_hov or is_hl or in_slot) else 1)
+                  3 if is_hl else
+                  2 if (is_hov or in_slot) else 1)
             border = None
             if is_drag:
                 border = (255, 255, 255)
@@ -1602,7 +1671,9 @@ class App:
             elif is_hov:
                 border = _shade(col, 0.45)
             elif is_hl:
-                border = _shade(col, 0.45)
+                # F-mode "find" highlight: bright hot pink so highlighted
+                # bricks pop visibly regardless of the brick's own color.
+                border = (180, 105, 255)
 
             draw_lego(frame, int(s.px), int(s.py), s.w, s.h, col,
                       alpha_body=alpha, border=border, border_w=bw,

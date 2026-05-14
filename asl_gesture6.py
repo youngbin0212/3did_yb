@@ -38,6 +38,7 @@ Run:      python asl_gesture5.py
 """
 
 import atexit, copy, csv, os, random, time, urllib.request
+from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
@@ -633,7 +634,12 @@ class App:
     # Cursor sits above the raw fingertip. mediapipe's index-tip landmark
     # tends to land below where the user perceives "where I'm pointing"
     # (camera perspective + finger curvature), so we bias the pointer up.
-    PTR_Y_OFFSET = 56
+    PTR_Y_OFFSET = 40
+    # How many recent (pre-pinch) cursor samples to remember. When pinch
+    # first fires we pick the highest point (min y) from this buffer as
+    # the "aim" position — that's where the fingertip was BEFORE it
+    # started dropping toward the thumb to form the pinch.
+    AIM_LOOKBACK = 6
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -668,6 +674,7 @@ class App:
         self._drag_offset   = (0.0, 0.0)
         self.r_ptr:         Optional[tuple] = None
         self._pinch_pt:     Optional[tuple] = None
+        self._aim_hist:     deque = deque(maxlen=self.AIM_LOOKBACK)
         self.r_pinch        = False
         self._prev_pin      = False
         self._notif         = ""
@@ -1153,9 +1160,23 @@ class App:
             if new_pinch and not self._prev_pin:
                 self._pinch_start_t = time.time()
 
+            # The act of forming a pinch drags the index fingertip downward
+            # to meet the thumb, so the cursor at the moment of pinch-down
+            # is *below* where the user was actually aiming. On the rising
+            # edge of pinch, replace (ix, iy) with the highest (min-y) point
+            # from the recent pre-pinch history — that's the true aim point.
+            if new_pinch and not self._prev_pin and self._aim_hist:
+                ax, ay = min(self._aim_hist, key=lambda p: p[1])
+                ix, iy = ax, ay
+
             # Anchor the cursor to the index fingertip in BOTH states so the
             # aiming point doesn't shift when the thumb closes.
             self._pinch_pt = (ix, iy)
+
+            # Only sample the aim history while NOT pinching, so the
+            # downward motion of pinching never pollutes the buffer.
+            if not new_pinch:
+                self._aim_hist.append((ix, iy))
 
             if self.mode == "open":
                 if new_pinch:
@@ -1209,6 +1230,7 @@ class App:
             self.r_ptr = self.hovered = self._pinch_pt = None
             self.r_pinch  = False
             self.dragging = None
+            self._aim_hist.clear()
 
         if self.r_pinch and not self._prev_pin and self.mode != "open":
             self._execute()

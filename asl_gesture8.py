@@ -630,10 +630,14 @@ class App:
     PINCH_ON  = 0.075
     PINCH_OFF = 0.115
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    # Cursor sits above the raw fingertip. mediapipe's index-tip landmark
-    # tends to land below where the user perceives "where I'm pointing"
-    # (camera perspective + finger curvature), so we bias the pointer up.
-    PTR_Y_OFFSET = 56
+    # Cursor is a weighted blend of index tip (8) and thumb tip (4).
+    # 50/50 midpoint is geometrically the "pinch point" (stable through
+    # the pinch motion), but users instinctively aim with the INDEX tip,
+    # so a pure midpoint feels biased toward the thumb side. We weight
+    # toward the index to put the cursor near where the user aims while
+    # still benefiting from the midpoint's stability under pinch.
+    PTR_Y_OFFSET = 24
+    INDEX_WEIGHT = 0.30   # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -1138,8 +1142,10 @@ class App:
         self._push(left_g)
 
         if r_lm:
-            ix = r_lm[8].x * W
-            iy = r_lm[8].y * H - self.PTR_Y_OFFSET
+            # Pointer = weighted blend of index tip (8) and thumb tip (4).
+            w = self.INDEX_WEIGHT
+            ix = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W
+            iy = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
             self.r_ptr = (ix, iy)
 
             # Hysteresis: lower threshold to engage, higher to release.
