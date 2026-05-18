@@ -485,6 +485,7 @@ class MetricsLogger:
         self.current_task: Optional[dict] = None
         self._frames_total      = 0
         self._frames_right_hand = 0
+        self._panel_opens       = 0
         self._last_action_idx: Optional[int] = None
         self._written = False
 
@@ -603,6 +604,15 @@ class MetricsLogger:
         if right_hand_detected:
             self._frames_right_hand += 1
 
+    # ── panel reference count ──────────────────
+    def log_panel_open(self):
+        """Record one user-initiated open of the gesture-guide panel.
+        Builds where the panel is always visible never call this, so
+        their session CSVs report panel_opens=0.
+        """
+        self._panel_opens += 1
+        self.log_event("panel_open", count=self._panel_opens)
+
     # ── persist ────────────────────────────────
     def write_to_disk(self):
         if self._written:
@@ -665,6 +675,7 @@ class MetricsLogger:
             w.writerow(["frames_total",                self._frames_total])
             w.writerow(["frames_right_hand_detected",  self._frames_right_hand])
             w.writerow(["right_hand_loss_rate",        round(loss_rate, 3)])
+            w.writerow(["panel_opens",                 self._panel_opens])
 
         print(f"[metrics] wrote {ev_path}")
         if self.task_records:
@@ -1300,9 +1311,17 @@ class App:
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
                 self._pinch_start_t = time.time()
-                # Any pinch reveals the gesture-guide panel for a few
-                # seconds. Default is hidden so the UI stays clean.
-                self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
+                # Reveal the gesture-guide panel only when the pinch
+                # lands inside the Instruction Panel rectangle. Pinches
+                # elsewhere (workspaces, sidebar) leave it hidden so it
+                # doesn't pop open every time the user grabs a brick.
+                # Each IP-area pinch is logged as a panel_open event,
+                # giving a session-level "how often did the user need a
+                # cheat-sheet refresher" count.
+                if (IP_X <= ix <= IP_X + IP_W
+                        and IP_Y <= iy <= IP_Y + IP_H):
+                    self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
+                    self.metrics.log_panel_open()
 
             # Anchor the cursor to the index fingertip in BOTH states so the
             # aiming point doesn't shift when the thumb closes.
