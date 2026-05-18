@@ -1,0 +1,13 @@
+t,task_idx,task_name,event_type,total_slots,count,action,response_latency_s,subaction,target,kind,expected,actual,source,correct,pasted,snapped,completed,duration_s,misplacements,correct_placements,error_rate
+0.011,0,Practice 1 - Copy & Paste,task_start,3,,,,,,,,,,,,,,,,,
+5.417,0,Practice 1 - Copy & Paste,panel_open,,1,,,,,,,,,,,,,,,,
+8.621,0,Practice 1 - Copy & Paste,action,,,C,0.91,copy,C,red,,,,,,,,,,,
+11.828,0,Practice 1 - Copy & Paste,placement,,,,,,,,red,red,paste,True,,,,,,,
+11.828,0,Practice 1 - Copy & Paste,action,,,C,0.798,paste,,red,,,,,C',True,,,,,
+14.239,0,Practice 1 - Copy & Paste,placement,,,,,,,,red,red,paste,True,,,,,,,
+14.239,0,Practice 1 - Copy & Paste,action,,,C,0.769,paste,,red,,,,,C',True,,,,,
+16.605,0,Practice 1 - Copy & Paste,placement,,,,,,,,red,red,paste,True,,,,,,,
+16.605,0,Practice 1 - Copy & Paste,action,,,C,0.769,paste,,red,,,,,C',True,,,,,
+16.605,0,Practice 1 - Copy & Paste,task_end,,,,,,,,,,,,,,True,16.594,0,3,0.0
+19.128,1,Practice 2 - Delete + Drag,task_start,4,,,,,,,,,,,,,,,,,
+19.638,1,Practice 2 - Delete + Drag,task_end,,,,,,,,,,,,,,False,0.51,0,0,0.0

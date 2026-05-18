@@ -52,6 +52,14 @@ from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision as mp_vision
 
 # ──────────────────────────────────────────────
+#  Build identifier — written into the session CSV and appended to each
+#  log filename so per-condition analysis can group sessions cleanly.
+# ──────────────────────────────────────────────
+
+BUILD_NAME = "con_a_practice"   # full label written into session CSV
+BUILD_TAG  = "a_practice"       # short suffix appended to log filenames
+
+# ──────────────────────────────────────────────
 #  Model
 # ──────────────────────────────────────────────
 
@@ -524,7 +532,7 @@ class MetricsLogger:
         out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                self.OUT_SUBDIR)
         os.makedirs(out_dir, exist_ok=True)
-        sid = self.session_id
+        sid = f"{self.session_id}_{BUILD_TAG}"
 
         ev_path = os.path.join(out_dir, f"events_{sid}.csv")
         if self.events:
@@ -562,7 +570,8 @@ class MetricsLogger:
         with open(ss_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(["metric", "value"])
-            w.writerow(["session_id",              sid])
+            w.writerow(["build",                   BUILD_NAME])
+            w.writerow(["session_id",              self.session_id])
             w.writerow(["session_duration_s",      round(self._now(), 3)])
             w.writerow(["tasks_recorded",          len(self.task_records)])
             w.writerow(["tasks_completed",         completed_n])

@@ -1,4 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Practice 1 - Drag Three,0.029,28.997,28.968,3,0,6,0,0,0,0,0,0,True,0.0
-1,Practice 2 - Drag Replace,31.555,50.673,19.118,4,1,2,0,0,0,0,0,0,True,0.333
-2,Practice 1 - Drag Three,53.185,59.44,6.255,3,0,0,0,0,0,0,0,0,False,0.0
