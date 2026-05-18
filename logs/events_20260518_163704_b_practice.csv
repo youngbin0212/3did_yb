@@ -1,0 +1,5 @@
+t,task_idx,task_name,event_type,total_slots,action,response_latency_s,subaction,completed,duration_s,misplacements,correct_placements,error_rate
+0.011,0,Practice 1 - Copy & Paste,task_start,3,,,,,,,,
+3.904,0,Practice 1 - Copy & Paste,action,,Z,0.889,empty_history,,,,,
+10.016,0,Practice 1 - Copy & Paste,action,,Z,1.013,empty_history,,,,,
+15.354,0,Practice 1 - Copy & Paste,task_end,,,,,False,15.342,0,0,0.0

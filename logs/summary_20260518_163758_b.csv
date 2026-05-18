@@ -1,0 +1,4 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Gate,0.029,70.303,70.274,14,0,0,0,2,0,6,4,0,False,0.0
+0,Gate,70.303,71.117,0.814,14,0,0,0,0,0,0,0,0,False,0.0
+0,Gate,71.117,72.044,0.927,14,0,0,0,0,0,0,0,0,False,0.0

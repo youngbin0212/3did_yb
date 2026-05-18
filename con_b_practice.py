@@ -13,7 +13,7 @@ Same four poses as baseline2.py:
   Ring  (thumb tip meets ring fingertip)  -> Copy   on hovered brick
   Pinky (thumb tip meets pinky fingertip) -> Paste  at pointer (snap to slot)
   Fist  (all fingers curled)              -> Delete hovered brick
-  Open  (palm flat, all extended)         -> Undo   (no target needed)
+  Open  (hand raised, all fingers up)     -> Undo   (no target needed)
 
 The OK sign (thumb+index) is left unbound (returns "unknown") so it
 can't accidentally fire any action.
@@ -399,9 +399,20 @@ def classify_left(lm) -> str:
     if d_tp < 0.06 and d_tp + 0.02 < d_tr and d_ti > 0.10 and d_tm > 0.10:
         return "Pinky"
 
-    # 4) Open — all four fingers extended (flat palm).
+    # 4) Open — all four fingers extended AND raised so fingertips sit
+    # clearly above the wrist. The vertical requirement keeps this
+    # distinct from a relaxed flat hand at chest height: that pose would
+    # otherwise false-fire Undo every time the user simply lowers their
+    # left hand. The 0.15 margin in normalised y is roughly half a
+    # finger length, so deliberate raising clears it easily while a
+    # resting open hand does not.
     if idx_ext and mid_ext and ring_ext and pnk_ext:
-        return "Open"
+        wrist_y = lm[0].y
+        if (lm[8].y  < wrist_y - 0.15
+                and lm[12].y < wrist_y - 0.15
+                and lm[16].y < wrist_y - 0.15
+                and lm[20].y < wrist_y - 0.15):
+            return "Open"
 
     return "unknown"
 
