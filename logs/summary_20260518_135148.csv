@@ -1,0 +1,3 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Practice 1 - Copy & Paste,0.062,10.72,10.658,1,0,1,1,2,0,0,0,0,True,0.0
+1,Practice 2 - Delete & Drag,13.237,42.872,29.635,1,0,0,0,10,0,0,0,0,False,0.0

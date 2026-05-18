@@ -1,0 +1,22 @@
+t,task_idx,task_name,event_type,total_slots,action,response_latency_s,target,kind,snapped,subaction,pasted,expected,actual,source,correct,remaining,completed,duration_s,misplacements,correct_placements,error_rate
+0.01,0,Practice 1 - Copy & Paste,task_start,3,,,,,,,,,,,,,,,,,
+28.648,0,Practice 1 - Copy & Paste,action,,drag,0.481,A,red,False,,,,,,,,,,,,
+34.338,0,Practice 1 - Copy & Paste,action,,C,0.829,A,red,,copy,,,,,,,,,,,
+40.599,0,Practice 1 - Copy & Paste,action,,C,0.822,,red,False,paste,A',,,,,,,,,,
+44.47,0,Practice 1 - Copy & Paste,placement,,,,,,,,,red,red,paste,True,,,,,,
+44.47,0,Practice 1 - Copy & Paste,action,,C,0.864,,red,True,paste,A',,,,,,,,,,
+46.147,0,Practice 1 - Copy & Paste,action,,X,0.849,A',red,,,,,,,,,,,,,
+48.713,0,Practice 1 - Copy & Paste,placement,,,,,,,,,red,red,paste,True,,,,,,
+48.713,0,Practice 1 - Copy & Paste,action,,C,0.825,,red,True,paste,A',,,,,,,,,,
+52.4,0,Practice 1 - Copy & Paste,action,,Z,0.889,,,,,,,,,,4,,,,,
+58.19,0,Practice 1 - Copy & Paste,action,,X,0.847,A',red,,,,,,,,,,,,,
+70.671,0,Practice 1 - Copy & Paste,action,,C,0.814,B,red,,copy,,,,,,,,,,,
+74.337,0,Practice 1 - Copy & Paste,placement,,,,,,,,,red,red,paste,True,,,,,,
+74.337,0,Practice 1 - Copy & Paste,action,,C,0.816,,red,True,paste,B',,,,,,,,,,
+76.546,0,Practice 1 - Copy & Paste,placement,,,,,,,,,red,red,paste,True,,,,,,
+76.546,0,Practice 1 - Copy & Paste,action,,C,0.818,,red,True,paste,B',,,,,,,,,,
+84.472,0,Practice 1 - Copy & Paste,placement,,,,,,,,,red,red,paste,True,,,,,,
+84.472,0,Practice 1 - Copy & Paste,action,,C,0.831,,red,True,paste,B',,,,,,,,,,
+84.472,0,Practice 1 - Copy & Paste,task_end,,,,,,,,,,,,,,True,84.462,0,5,0.0
+86.993,1,Practice 2 - Delete + Drag,task_start,4,,,,,,,,,,,,,,,,,
+450.495,1,Practice 2 - Delete + Drag,task_end,,,,,,,,,,,,,,False,363.502,0,0,0.0

@@ -1,0 +1,12 @@
+metric,value
+session_id,20260518_141445
+session_duration_s,164.302
+tasks_recorded,7
+tasks_completed,1
+total_actions,25
+unintentional_actions,0
+unintentional_rate,0.0
+recognition_accuracy_proxy,1.0
+frames_total,1403
+frames_right_hand_detected,751
+right_hand_loss_rate,0.465
