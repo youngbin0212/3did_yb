@@ -1,0 +1,9 @@
+# Python 3.13.9  (Windows 11 tested)
+# Install with:  pip install -r requirements.txt
+#
+# The hand_landmarker.task model file is auto-downloaded on first run
+# from Google's mediapipe CDN, so no manual model setup is required.
+
+opencv-python==4.13.0.92
+mediapipe==0.10.33
+numpy==2.3.5
