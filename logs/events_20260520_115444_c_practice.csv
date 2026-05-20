@@ -1,0 +1,5 @@
+t,task_idx,task_name,event_type,total_slots,completed,duration_s,misplacements,correct_placements,error_rate
+0.033,0,Practice 1 - Copy & Paste,task_start,3,,,,,
+2.705,0,Practice 1 - Copy & Paste,task_end,,False,2.671,0,0,0.0
+2.705,1,Practice 2 - Find + Delete + Drag,task_start,4,,,,,
+6.612,1,Practice 2 - Find + Delete + Drag,task_end,,False,3.907,0,0,0.0
