@@ -1,0 +1,14 @@
+metric,value
+build,con_b
+session_id,20260520_155637
+session_duration_s,396.825
+tasks_recorded,7
+tasks_completed,4
+total_actions,100
+unintentional_actions,0
+unintentional_rate,0.0
+recognition_accuracy_proxy,1.0
+frames_total,4802
+frames_right_hand_detected,4483
+right_hand_loss_rate,0.066
+panel_opens,3

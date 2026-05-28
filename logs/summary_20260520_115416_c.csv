@@ -1,7 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Gate,0.081,3.788,3.707,14,0,0,0,0,0,0,0,0,False,0.0
-1,Goalpost,3.789,4.623,0.834,14,0,0,0,0,0,0,0,0,False,0.0
-2,Find Red,4.623,5.288,0.665,13,0,0,0,0,0,0,0,0,False,0.0
-3,Find Two,5.288,5.802,0.514,12,0,0,0,0,0,0,0,0,False,0.0
-4,Cleanup,5.802,7.095,1.293,10,0,0,0,0,0,0,0,0,False,0.0
-5,Sunshine Cleanup,7.095,10.534,3.439,9,0,0,0,0,0,0,0,0,False,0.0

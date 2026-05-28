@@ -1,0 +1,7 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Copy: 10 per box,0.103,80.145,80.042,40,0,9,1,10,0,0,0,0,False,0.0
+1,Copy: 6 times each,80.145,95.555,15.41,24,0,2,0,3,0,0,0,0,False,0.0
+2,Find: match shades,95.555,153.771,58.216,8,0,0,0,0,0,0,0,0,False,0.0
+3,Delete: keep only red,153.771,250.26,96.489,9,0,0,1,1,0,6,0,0,False,0.0
+4,Undo: restore blocks,250.261,250.5,0.239,25,0,0,0,0,0,0,0,0,False,0.0
+1,Copy: 6 times each,250.5,255.094,4.594,24,0,0,0,0,0,0,0,0,False,0.0

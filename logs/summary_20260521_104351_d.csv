@@ -1,0 +1,4 @@
+task_idx,name,task_type,subtype,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,action_batch_move,action_batch_delete,unintentional,completed,timeout,travel_distance,action_count,error_rate
+0,Gate,match,,0.077,2.744,2.667,14,0,0,0,0,0,0,0,0,0,0,False,False,0.0,0,0.0
+6,Cleanup & Sort (Easy),classify,cleanup_sort,2.745,80.698,77.953,0,0,0,7,4,2,0,0,0,2,0,False,False,0.0,0,0.0
+7,Cleanup & Sort (Hard),classify,cleanup_sort,80.698,97.625,16.927,0,0,0,1,3,0,0,0,0,0,0,False,False,0.0,0,0.0

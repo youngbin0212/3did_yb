@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """
-Gesture Workspace — BASELINE 1 (drag-only)
+Gesture Workspace v5  (MediaPipe Tasks API)
 ============================================
-Identical to asl_gesture12.py (same tasks, same UI, same metrics logger)
-except left-hand mode commits are suppressed: the mode stays "open"
-forever so only pinch-and-drag works. C / F / X / Z shortcuts are inert.
-Used as the no-shortcut baseline for comparing against the full gesture
-build in the usability evaluation.
-
-On exit, three CSVs are written to ./logs/:
+v5 adds a usability metrics logger on top of v4. On exit, three CSVs are
+written to ./logs/:
   events_<id>.csv   one row per raw event (mode change, action, placement, ...)
   summary_<id>.csv  one row per task (duration, error rate, action counts)
   session_<id>.csv  session-wide totals incl. unintentional-action rate
@@ -57,8 +52,8 @@ from mediapipe.tasks.python import vision as mp_vision
 #  log filename so per-condition analysis can group sessions cleanly.
 # ──────────────────────────────────────────────
 
-BUILD_NAME = "con_a"   # full label written into session CSV
-BUILD_TAG  = "a"       # short suffix appended to log filenames
+BUILD_NAME = "ut_c"    # full label written into session CSV
+BUILD_TAG  = "uc"      # short suffix appended to log filenames
 
 # ──────────────────────────────────────────────
 #  Model
@@ -185,6 +180,17 @@ SHAPE_COLORS = {
     "olive":   ( 40, 130, 150),   # dull yellow   (≈ yellow)
     "teal":    (130, 145,  55),   # green-blue    (≈ green)
     "mint":    (140, 215, 140),   # light green   (≈ green)
+    # Task 3 "Find" — 8 subtly different blue shades. Picked to span
+    # vivid → light → navy → slate so each slot has a perceptibly
+    # distinct target, but the within-pool comparisons are still hard.
+    "b1": (235,  90,  35),
+    "b2": (250, 200, 150),
+    "b3": ( 90,  50,  35),
+    "b4": (165, 130, 110),
+    "b5": (200, 105,  60),
+    "b6": (240, 175, 120),
+    "b7": (245, 220, 180),
+    "b8": (175,  75,  30),
 }
 
 # Colors used as random pool fillers when a task doesn't specify its own
@@ -197,133 +203,142 @@ DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 # ──────────────────────────────────────────────
 
 TASK_DEFS = [
-    # Task 1 — Gate (archway). Yellow lintel across the top, two grey
-    # pillars, green base across the bottom. (14 slots)
+    # Task 1 — Copy (variant 1): Place 10 blocks in each colour box.
+    # The reference image shows 4 large coloured boxes in a 2x2 layout,
+    # each holding 10 blocks. We mirror that with a 10x4 grid split into
+    # four 5x2 quadrants — blue (top-left), green (top-right), yellow
+    # (bottom-left), red (bottom-right). 4 seed bricks live in the
+    # task workspace (one per colour); the user copies each one and
+    # pastes 10 times into the matching quadrant → 40 paste actions.
     {
-        "name": "Gate",
-        "file": "task1.png",
-        "cols": 5, "rows": 4,
+        "name": "Copy: 10 per box",
+        "file": "1_copy1.png",
+        "cols": 10, "rows": 4,
         "layout": [
-            # row 0 — yellow lintel (5)
-            (0,0,"yellow"),(1,0,"yellow"),(2,0,"yellow"),(3,0,"yellow"),(4,0,"yellow"),
-            # rows 1-2 — grey pillars at the outer columns (4)
-            (0,1,"grey"),                                              (4,1,"grey"),
-            (0,2,"grey"),                                              (4,2,"grey"),
-            # row 3 — green base, full width (5)
-            (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
+            # Top-left quadrant — blue (cols 0..4, rows 0..1)
+            *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 5)],
+            # Top-right quadrant — green (cols 5..9, rows 0..1)
+            *[(c, r, "green")  for r in range(0, 2) for c in range(5, 10)],
+            # Bottom-left quadrant — yellow (cols 0..4, rows 2..3)
+            *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 5)],
+            # Bottom-right quadrant — red (cols 5..9, rows 2..3)
+            *[(c, r, "red")    for r in range(2, 4) for c in range(5, 10)],
         ],
+        # Seeds live in the task workspace (consistent with Task 2) so
+        # the panel isn't empty and the source/destination split is
+        # visually obvious. Drag is also possible but only the 4 seeds
+        # exist, so finishing still requires C-mode copy + paste.
+        "pool": ["blue", "green", "yellow", "red"],
     },
-    # Task 2 — Goalpost. Red caps poking above the crossbar, red+blue
-    # crossbar, grey pillar shafts, green base. (14 slots)
-    # {
-    #     "name": "Goalpost",
-    #     "file": "task2.png",
-    #     "cols": 5, "rows": 4,
-    #     "layout": [
-    #         # row 0 — red caps poking above the crossbar (2)
-    #         (0,0,"red"),                                              (4,0,"red"),
-    #         # row 1 — crossbar: red at the pillars, 3 blues between (5)
-    #         (0,1,"red"),(1,1,"blue"),(2,1,"blue"),(3,1,"blue"),(4,1,"red"),
-    #         # row 2 — grey pillar shafts (2)
-    #         (0,2,"grey"),                                              (4,2,"grey"),
-    #         # row 3 — green base, full width (5)
-    #         (0,3,"green"),(1,3,"green"),(2,3,"green"),(3,3,"green"),(4,3,"green"),
-    #     ],
-    # },
-    # Task 3 — Find Red. A small red heart. A few red hint bricks are
-    # pre-placed in the drop zone; the rest must be located in the
-    # cluttered pool using F mode. Pool max = 4 colors (target + 3
-    # RGB-similar distractors).
+    # Task 2 — Copy (variant 2): Copy each block 6 times.
+    # 4 source bricks live in the task workspace (the pool); for each one
+    # the user copies it and pastes 6 times into the matching coloured row.
     {
-        "name": "Find Red",
-        "file": "task3.png",
-        "cols": 5, "rows": 4,
+        "name": "Copy: 6 times each",
+        "file": "2_copy2.png",
+        "cols": 6, "rows": 4,
         "layout": [
-            # row 0 — heart shoulders (two 2-wide humps with a gap)
-            (0,0,"red"),(1,0,"red"),                (3,0,"red"),(4,0,"red"),
-            # row 1 — heart body (full row)
-            (0,1,"red"),(1,1,"red"),(2,1,"red"),(3,1,"red"),(4,1,"red"),
-            # row 2 — taper (3 wide, centered)
-                          (1,2,"red"),(2,2,"red"),(3,2,"red"),
-            # row 3 — point
-                                        (2,3,"red"),
+            *[(c, 0, "pink")   for c in range(6)],
+            *[(c, 1, "purple") for c in range(6)],
+            *[(c, 2, "green")  for c in range(6)],
+            *[(c, 3, "yellow") for c in range(6)],
+        ],
+        # Seeds live in the pool (one per colour) instead of pre-placed
+        # in slots — matches the "copy each block 6 times" framing where
+        # nothing is in the slots yet.
+        "pool": ["pink", "purple", "green", "yellow"],
+    },
+    # Task 3 — Find: match similar-looking blocks.
+    # Row 0 holds 8 LOCKED reference bricks (the "examples") — visible
+    # at the top of the drop zone but immune to drag / copy / delete.
+    # F-mode still works on them, so the user can hover a reference and
+    # see the matching pool brick highlight. Row 1 below is where the
+    # answer slots live: the user matches each pool brick to the slot
+    # directly under the reference of the same shade. Pool ordering is
+    # shuffled so a position-based shortcut isn't possible.
+    {
+        "name": "Find: match shades",
+        "file": "3_find.png",
+        "cols": 8, "rows": 2,
+        "pre_placed": [
+            (0, 0, "b1"), (1, 0, "b2"), (2, 0, "b3"), (3, 0, "b4"),
+            (4, 0, "b5"), (5, 0, "b6"), (6, 0, "b7"), (7, 0, "b8"),
+        ],
+        "layout": [
+            (0, 1, "b1"), (1, 1, "b2"), (2, 1, "b3"), (3, 1, "b4"),
+            (4, 1, "b5"), (5, 1, "b6"), (6, 1, "b7"), (7, 1, "b8"),
+        ],
+        # Non-trivial fixed order — user can't just drag straight down.
+        "pool": ["b5", "b1", "b8", "b3", "b6", "b2", "b7", "b4"],
+        "lock_pre_placed": True,
+    },
+    # Task 4 — Delete: remove all non-red blocks.
+    # The grid starts FULLY pre-filled with a red heart pattern surrounded
+    # by blue + yellow intruders. The layout only lists the red positions,
+    # so to satisfy _check_answer the user has to X-mode delete every
+    # non-red brick (the "extras in non-layout slots" check rejects the
+    # board until they're all gone).
+    {
+        "name": "Delete: keep only red",
+        "file": "4_delete.png",
+        "cols": 5, "rows": 5,
+        "layout": [
+            # 8 red positions forming a heart
+                            (1, 1, "red"),                  (3, 1, "red"),
+            (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
+            (0, 3, "red"),                                                  (4, 3, "red"),
+                            (1, 4, "red"),                  (3, 4, "red"),
         ],
         "pre_placed": [
-            # two outer shoulders + point as hint
-            (0,0,"red"),                                              (4,0,"red"),
-                                          (2,3,"red"),
+            # Row 0 — all blue border
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            # Row 1 — blue ends, red at heart-shoulders, yellow filler
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            # Row 2 — red at sides + middle, yellow between
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            # Row 3 — red at sides, yellow in middle
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            # Row 4 — blue ends, red taper, yellow filler
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
-        "pool_colors": ["red", "orange", "pink", "crimson"],
+        "pool": [],
+        # Red is the target to PRESERVE — X-mode pinches on red are
+        # no-ops. Stops a misfired pinch from corrupting the goal state.
+        "delete_protect": "red",
     },
-    # Task 4 — Find Two (green + yellow). Two-color layout split down
-    # the middle (yellow left half, green right half). The pool mixes
-    # both targets with RGB-similar distractors: lime sits between
-    # yellow and green, olive leans yellow, teal & mint lean green.
+    # Task 5 — Undo: restore everything that was deleted.
+    # Same 5×5 board as Task 4, but the non-red bricks are auto-deleted at
+    # load time (with one history snapshot pushed per deletion). The user
+    # restores them one Z-mode pinch at a time, until the full board is
+    # back. The layout lists ALL 25 positions, so completion requires
+    # every snapshot to be popped.
     {
-        "name": "Find Two",
-        "file": "task4.png",
-        "cols": 4, "rows": 3,
+        "name": "Undo: restore blocks",
+        "file": "5_undo.png",
+        "cols": 5, "rows": 5,
         "layout": [
-            (0,0,"yellow"),(1,0,"yellow"),(2,0,"green"),(3,0,"green"),
-            (0,1,"yellow"),(1,1,"yellow"),(2,1,"green"),(3,1,"green"),
-            (0,2,"yellow"),(1,2,"yellow"),(2,2,"green"),(3,2,"green"),
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
         "pre_placed": [
-            # corner hints — one yellow corner per yellow side, one green corner per green side
-            (0,0,"yellow"),                                  (3,0,"green"),
-            (0,2,"yellow"),                                  (3,2,"green"),
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
-        "pool_colors": ["yellow", "green", "lime", "olive", "teal", "mint"],
-    },
-    # Task 5 — Cleanup. The structure starts pre-built with intruder bricks
-    # of the wrong color. The user is expected to:
-    #   1) F (find): hover an intruder, pinch -> highlight all of that color
-    #   2) X (delete): remove each intruder
-    #   3) drag mode: bring correct bricks from the pool into the empty slots
-    # # This is what exercises the full C/F/X/Z gesture set.
-    # {
-    #     "name": "Cleanup",
-    #     "file": "task5.png",
-    #     "cols": 4, "rows": 3,
-    #     "layout": [
-    #         (0,0,"green"),  (1,0,"green"),  (2,0,"green"),  (3,0,"green"),
-    #         (0,1,"blue"),                                    (3,1,"blue"),
-    #         (0,2,"yellow"), (1,2,"yellow"), (2,2,"yellow"), (3,2,"yellow"),
-    #     ],
-    #     "pre_placed": [
-    #         (0,0,"green"),  (1,0,"green"),  (2,0,"red"),    (3,0,"green"),
-    #         (0,1,"blue"),                                    (3,1,"purple"),
-    #         (0,2,"yellow"), (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"),
-    #     ],
-    # },
-    # Task 6 — Sunshine Cleanup. Same yellow burst with a red core as
-    # Sunshine, but pre-built almost entirely WRONG: 6 of the 9 slots
-    # hold intruders whose colours are RGB-similar to the target. Lime
-    # and olive masquerade as yellow; orange and crimson masquerade as
-    # red. The pool also mixes in those confusing colours, so plain
-    # eyeballing fails — the user has to lean on F mode (highlight
-    # same-kind) to tell true yellow from lime/olive, etc., before
-    # X-deleting and dragging in the correct piece. Strictly harder
-    # than Task 5: more intruders (6 vs 3) AND similar-hue distractors.
-    # Grid stays 5x3 so the brick size doesn't shrink.
-    {
-        "name": "Sunshine Cleanup",
-        "file": "task6.png",
-        "cols": 5, "rows": 3,
-        "layout": [
-                            (1,0,"yellow"), (2,0,"yellow"), (3,0,"yellow"),
-            (0,1,"yellow"),                 (2,1,"red"),                    (4,1,"yellow"),
-                            (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"),
-        ],
-        "pre_placed": [
-            # (2,1) is left as the correct red — a hint anchor so the
-            # user can compare the true target hue against the crimson
-            # intruder at (2,2) and the orange intruder at (0,1).
-                            (1,0,"lime"),   (2,0,"yellow"), (3,0,"olive"),
-            (0,1,"orange"),                 (2,1,"red"),                    (4,1,"lime"),
-                            (1,2,"yellow"), (2,2,"crimson"),(3,2,"yellow"),
-        ],
-        "pool_colors": ["yellow", "red", "lime", "olive", "orange", "pink", "crimson"],
+        "pool": [],
+        # At load, pre-delete every brick whose kind != "red", recording
+        # one undo step per deletion. The user reverses those deletions
+        # with Z-mode pinches until the board is whole again.
+        "auto_delete_preserve": "red",
+        # Red bricks are immune to X-mode here too: this task is about
+        # restoring with undo, not re-deleting reds the auto-load left
+        # alone. A stray pinch on a red shouldn't derail it.
+        "delete_protect": "red",
     },
 ]
 
@@ -405,8 +420,11 @@ class Shape:
     h:     int
     label: str
     kind:  str
-    alive: bool  = True
+    alive: bool   = True
     slot:  object = None
+    # Locked bricks are reference/example pieces — visible and F-mode
+    # targetable, but immune to drag, copy, paste-replace, and delete.
+    locked: bool  = False
 
 # ──────────────────────────────────────────────
 #  Hand classifier  (unchanged from v3)
@@ -498,6 +516,7 @@ class MetricsLogger:
         self.current_task: Optional[dict] = None
         self._frames_total      = 0
         self._frames_right_hand = 0
+        self._panel_opens       = 0
         self._last_action_idx: Optional[int] = None
         self._written = False
 
@@ -616,6 +635,15 @@ class MetricsLogger:
         if right_hand_detected:
             self._frames_right_hand += 1
 
+    # ── panel reference count ──────────────────
+    def log_panel_open(self):
+        """Record one user-initiated open of the gesture-guide panel.
+        Builds where the panel is always visible never call this, so
+        their session CSVs report panel_opens=0.
+        """
+        self._panel_opens += 1
+        self.log_event("panel_open", count=self._panel_opens)
+
     # ── persist ────────────────────────────────
     def write_to_disk(self):
         if self._written:
@@ -679,6 +707,7 @@ class MetricsLogger:
             w.writerow(["frames_total",                self._frames_total])
             w.writerow(["frames_right_hand_detected",  self._frames_right_hand])
             w.writerow(["right_hand_loss_rate",        round(loss_rate, 3)])
+            w.writerow(["panel_opens",                 self._panel_opens])
 
         print(f"[metrics] wrote {ev_path}")
         if self.task_records:
@@ -697,7 +726,7 @@ class App:
     PINCH_ON  = 0.055
     PINCH_OFF = 0.075
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    HISTORY_MAX = 10       # number of undo steps Z mode can roll back
+    HISTORY_MAX = 50       # number of undo steps Z mode can roll back
     GUIDE_REVEAL_S = 5.0   # how long the gesture-guide panel stays visible
                            # after a pinch (hidden by default the rest of
                            # the time so the panel doesn't crowd the UI).
@@ -812,7 +841,7 @@ class App:
     def _load_tasks(self):
         """Load reference images for each TASK_DEFS entry."""
         here = os.path.dirname(os.path.abspath(__file__))
-        tasks_dir = os.path.join(here, "tasks")
+        tasks_dir = os.path.join(here, "tasks_ver2")
         result = []
         for d in TASK_DEFS:
             t = dict(d)
@@ -1009,40 +1038,48 @@ class App:
         pre_placed = t.get("pre_placed", [])
 
         # 1) Pre-placed bricks go directly into their slots (action workspace).
+        #    When `lock_pre_placed` is set, those pre-placed bricks become
+        #    reference/example pieces — visible to F-mode but immune to
+        #    drag / copy / paste-replace / delete.
+        lock_pre_placed = bool(t.get("lock_pre_placed", False))
         labels_pre = "abcdefghijklmnop"
         for i, (col, row, kind) in enumerate(pre_placed):
             cx, cy = self._slot_center(col, row)
             self.shapes.append(Shape(
-                id    = self._next_id,
-                px    = float(cx),
-                py    = float(cy),
-                w     = self.brick_w, h = self.brick_h,
-                label = labels_pre[i % len(labels_pre)],
-                kind  = kind,
-                slot  = (col, row),
+                id     = self._next_id,
+                px     = float(cx),
+                py     = float(cy),
+                w      = self.brick_w, h = self.brick_h,
+                label  = labels_pre[i % len(labels_pre)],
+                kind   = kind,
+                slot   = (col, row),
+                locked = lock_pre_placed,
             ))
             self._next_id += 1
 
-        # 2) Pool: only the colors the user still needs to add to win
-        #    (slots whose pre-placed kind doesn't match the layout) plus
-        #    distractors. Pool size scales with what the layout actually
-        #    needs — small tasks get a tight pool, big tasks get a large
-        #    one so every required brick fits.
-        placed = {(c, r): k for c, r, k in pre_placed}
-        needed = [exp for c, r, exp in layout if placed.get((c, r)) != exp]
-        pool_size = max(len(needed) + 3, 12)
-        positions = self._build_scatter_positions(pool_size)
+        # 2) Pool: a task can either provide an explicit `pool` list
+        #    (e.g. the new Copy / Find / Delete / Undo tasks, where the
+        #    pool is hand-picked to force a specific gesture) or fall
+        #    back to the legacy auto-fill: every slot that still needs a
+        #    correct brick gets one in the pool, plus distractors.
+        explicit_pool = t.get("pool")
+        if explicit_pool is not None:
+            pool = list(explicit_pool)
+        else:
+            placed = {(c, r): k for c, r, k in pre_placed}
+            needed = [exp for c, r, exp in layout if placed.get((c, r)) != exp]
+            pool_size = max(len(needed) + 3, 12)
+            pool = list(needed)
+            # Find-task tasks specify their own narrow distractor palette
+            # (target + visually-similar colors). Other tasks fall back to
+            # the default 6-colour set.
+            allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
+            while len(pool) < pool_size:
+                pool.append(random.choice(allowed))
+            pool = pool[:pool_size]
+            random.shuffle(pool)
 
-        pool = list(needed)
-        # Find-task tasks specify their own narrow distractor palette
-        # (target + visually-similar colors). Other tasks fall back to
-        # the default 6-colour set, so the new distractor colours never
-        # leak into Gate / Bridge / Cleanup / Sunshine etc.
-        allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
-        while len(pool) < pool_size:
-            pool.append(random.choice(allowed))
-        pool = pool[:pool_size]
-        random.shuffle(pool)
+        positions = self._build_scatter_positions(len(pool))
 
         labels = "ABCDEFGHIJKLMNOPQRSTUVWXY"
         for i, (rx, ry) in enumerate(positions):
@@ -1057,6 +1094,22 @@ class App:
                 kind  = pool[i],
             ))
             self._next_id += 1
+
+        # 3) Optional auto-deletion. Used by the Undo task to seed the
+        #    board with a "you've already deleted these" state plus a
+        #    matching undo stack — one snapshot per deletion — so the
+        #    user can roll the board back one Z-pinch at a time.
+        preserve_kind = t.get("auto_delete_preserve")
+        if preserve_kind is not None:
+            to_delete = [
+                s for s in self.shapes
+                if s.alive and s.slot is not None and s.kind != preserve_kind
+            ]
+            random.shuffle(to_delete)
+            for s in to_delete:
+                self._push_history()
+                s.alive = False
+                s.slot  = None
 
         # Begin metrics record for this task
         self.metrics.start_task(self.task_idx, t["name"], len(layout))
@@ -1073,18 +1126,31 @@ class App:
         """True if a pinch in C mode would PASTE (replace) onto `shape`
         instead of copying it. Triggered when clipboard has content and
         the hovered brick is sitting in a slot — i.e. the user is aiming
-        at the drop zone to swap a piece."""
+        at the drop zone to swap a piece. Locked reference bricks are
+        never paste targets (the user can't overwrite an example)."""
         return (self.mode == "C"
                 and self.clipboard is not None
                 and shape is not None
-                and shape.slot is not None)
+                and shape.slot is not None
+                and not shape.locked)
 
     def _check_answer(self) -> bool:
         t = self.tasks[self.task_idx % len(self.tasks)]
+        layout_slots = {(c, r) for c, r, _ in t["layout"]}
         for col, row, expected in t["layout"]:
             occ = next((s for s in self.shapes
                         if s.alive and s.slot == (col, row)), None)
             if occ is None or occ.kind != expected:
+                return False
+        # Reject extras occupying a non-layout slot — the Delete task's
+        # win condition is "only the listed (red) slots are filled and
+        # nothing else", which we enforce here. Locked reference bricks
+        # are exempt (they live in their own row above the target slots
+        # and are part of the puzzle setup, not extras).
+        for s in self.shapes:
+            if s.alive and s.slot is not None and s.slot not in layout_slots:
+                if s.locked:
+                    continue
                 return False
         return True
 
@@ -1124,10 +1190,18 @@ class App:
             self._buf.pop(0)
         if len(self._buf) == self.STABLE and len(set(self._buf)) == 1:
             self._stable_count = self.STABLE
-            # Baseline 1: mode commits are suppressed. Stability is still
-            # tracked above so the UI stability bar behaves identically,
-            # but the mode never leaves "open" — only drag works.
-            pass
+            new = self._buf[0]
+            if new in ("C", "F", "X", "Z", "open"):
+                if new != self.mode:
+                    latency = ((time.time() - self._gesture_first_t)
+                               if self._gesture_first_t else 0.0)
+                    old_mode = self.mode
+                    # Clear the F-mode "find" highlight on any mode change.
+                    self.highlighted.clear()
+                    self.mode = new
+                    self.metrics.log_mode_change(old_mode, new, latency)
+                    self._pending_gesture = None
+                    self._gesture_first_t = None
         else:
             # count contiguous matches at the tail
             tail = self._buf[-1]
@@ -1155,6 +1229,8 @@ class App:
         current mode + cursor + clipboard state. Empty string when the
         action would be a no-op or the mode doesn't need a hint."""
         if self.mode == "C":
+            if self.hovered is not None and self.hovered.locked:
+                return "(Reference — can't copy)"
             paste_over = self._is_paste_target(self.hovered)
             if self.hovered is not None and not paste_over:
                 return f"Copy '{self.hovered.label}'"
@@ -1167,6 +1243,11 @@ class App:
         if self.mode == "F" and self.hovered is not None:
             return f"Find {self.hovered.kind} pieces"
         if self.mode == "X" and self.hovered is not None:
+            if self.hovered.locked:
+                return "(Reference — can't delete)"
+            t = self.tasks[self.task_idx % len(self.tasks)]
+            if t.get("delete_protect") == self.hovered.kind:
+                return f"(You can't delete this {self.hovered.kind})"
             return f"Delete '{self.hovered.label}'"
         if self.mode == "Z" and self._history:
             return f"Undo (stack: {len(self._history)})"
@@ -1180,7 +1261,13 @@ class App:
                    if self._pinch_start_t else 0.0)
         if self.mode == "C":
             paste_over = self._is_paste_target(obj)
-            if obj and not paste_over:
+            if obj is not None and obj.locked:
+                # Locked references cannot be copied OR overwritten.
+                self._notify("Reference — can't copy")
+                self.metrics.log_action("C", latency,
+                                        blocked=True,
+                                        target=obj.label, kind=obj.kind)
+            elif obj and not paste_over:
                 self.clipboard = copy.copy(obj)
                 self._notify(f"Copied: {obj.label}")
                 self.metrics.log_action("C", latency,
@@ -1255,19 +1342,46 @@ class App:
                                         count=len(self.highlighted))
         elif self.mode == "X":
             if obj:
-                self._push_history()
-                obj.alive = False
-                obj.slot  = None
-                self.highlighted.discard(obj.id)
-                self._notify(f"Deleted: {obj.label}")
-                self.metrics.log_action("X", latency,
-                                        target=obj.label, kind=obj.kind)
+                # Per-task delete guard: a stray pinch on a "protected"
+                # kind (e.g. red in the Delete / Undo tasks) or on a
+                # locked reference is rejected so an unstable pinch can't
+                # corrupt the goal state.
+                t = self.tasks[self.task_idx % len(self.tasks)]
+                protect = t.get("delete_protect")
+                if obj.locked:
+                    self._notify("Reference — can't delete")
+                    self.metrics.log_action("X", latency,
+                                            blocked=True,
+                                            target=obj.label, kind=obj.kind)
+                elif protect is not None and obj.kind == protect:
+                    self._notify(f"{obj.kind.capitalize()} is protected")
+                    self.metrics.log_action("X", latency,
+                                            blocked=True,
+                                            target=obj.label, kind=obj.kind)
+                else:
+                    self._push_history()
+                    obj.alive = False
+                    obj.slot  = None
+                    self.highlighted.discard(obj.id)
+                    self._notify(f"Deleted: {obj.label}")
+                    self.metrics.log_action("X", latency,
+                                            target=obj.label, kind=obj.kind)
+                    # The Delete task completes when every non-target brick
+                    # is gone, so we have to re-check after each deletion.
+                    if self._check_answer():
+                        self._correct_t = time.time()
+                        self.metrics.end_task(completed=True)
         elif self.mode == "Z":
             if self._history:
                 self._restore_snapshot(self._history.pop())
                 self._notify(f"Undo (steps left: {len(self._history)})")
                 self.metrics.log_action("Z", latency,
                                         remaining=len(self._history))
+                # Undo task completes once the last snapshot has been
+                # popped and the full pre-deleted board is back.
+                if self._check_answer():
+                    self._correct_t = time.time()
+                    self.metrics.end_task(completed=True)
 
     # ── update ───────────────────────────────
 
@@ -1309,9 +1423,17 @@ class App:
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
                 self._pinch_start_t = time.time()
-                # Any pinch reveals the gesture-guide panel for a few
-                # seconds. Default is hidden so the UI stays clean.
-                self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
+                # Reveal the gesture-guide panel only when the pinch
+                # lands inside the Instruction Panel rectangle. Pinches
+                # elsewhere (workspaces, sidebar) leave it hidden so it
+                # doesn't pop open every time the user grabs a brick.
+                # Each IP-area pinch is logged as a panel_open event,
+                # giving a session-level "how often did the user need a
+                # cheat-sheet refresher" count.
+                if (IP_X <= ix <= IP_X + IP_W
+                        and IP_Y <= iy <= IP_Y + IP_H):
+                    self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
+                    self.metrics.log_panel_open()
 
             # Anchor the cursor to the index fingertip in BOTH states so the
             # aiming point doesn't shift when the thumb closes.
@@ -1321,7 +1443,9 @@ class App:
                 if new_pinch:
                     if not self._prev_pin:
                         hit = self._hit(ix, iy)
-                        if hit:
+                        # Locked reference bricks are not draggable —
+                        # the open-mode pinch passes right through them.
+                        if hit and not hit.locked:
                             # Snapshot BEFORE we mutate the picked-up
                             # brick, so undo can fully rewind the drag.
                             self._push_history()
@@ -1595,16 +1719,95 @@ class App:
                       0.50, (220, 225, 200))
 
     def _draw_instruction_panel(self, frame):
-        # Baseline 1: no gesture shortcuts available, so the panel just
-        # shows "Drag mode" centered. The panel frame is kept to preserve
-        # the overall layout (no shift in workspace sizes).
-        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Mode")
-        label = "Drag mode"
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.70, 2)
-        self._put(frame, label,
-                  IP_X + (IP_W - tw) // 2,
-                  IP_Y + (IP_H + th) // 2,
-                  0.70, (90, 90, 85), 2)
+        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Gesture Shortcuts")
+
+        # Hide the gesture cards by default. They reveal for
+        # GUIDE_REVEAL_S after any pinch, then fade back to hidden so
+        # the panel doesn't crowd the screen during normal play.
+        if time.time() >= self._guide_until_t:
+            hint = "Pinch to show gesture guide"
+            (tw, _), _ = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX,
+                                          0.46, 1)
+            self._put(frame, hint,
+                      IP_X + (IP_W - tw) // 2,
+                      IP_Y + IP_H // 2 + 4,
+                      0.46, (140, 140, 135))
+            return
+
+        cards = [
+            ("C", "Copy",   self.MODE_BGR["C"]),
+            ("F", "Find",   self.MODE_BGR["F"]),
+            ("X", "Delete", self.MODE_BGR["X"]),
+            ("Z", "Undo",   self.MODE_BGR["Z"]),
+        ]
+        n = len(cards)
+        pad = 8
+        ix = IP_X + pad
+        iy = IP_Y + 38
+        iw = IP_W - 2 * pad
+        ih = IP_H - 46
+        cw = (iw - (n - 1) * pad) // n
+
+        # vertical split inside each card: photo on top, label below
+        LABEL_H = 22
+        IMG_PAD = 4
+
+        for i, (letter, label, color) in enumerate(cards):
+            x1 = ix + i * (cw + pad)
+            y1 = iy
+            x2 = x1 + cw
+            y2 = y1 + ih
+            active = (self.mode == letter)
+
+            # card background
+            if active:
+                self._fill(frame, x1, y1, x2, y2, color, 0.18)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            else:
+                cv2.rectangle(frame, (x1, y1), (x2, y2),
+                              (235, 235, 230), -1)
+                cv2.rectangle(frame, (x1, y1), (x2, y2),
+                              (180, 180, 175), 1)
+
+            # photo region
+            img_x1 = x1 + IMG_PAD
+            img_x2 = x2 - IMG_PAD
+            img_y1 = y1 + IMG_PAD
+            img_y2 = y2 - LABEL_H - IMG_PAD
+            img = self._gesture_imgs.get(letter)
+
+            if img is not None:
+                sh, sw = img.shape[:2]
+                avail_w = img_x2 - img_x1
+                avail_h = img_y2 - img_y1
+                scale = min(avail_w / sw, avail_h / sh)
+                rw, rh = max(1, int(sw * scale)), max(1, int(sh * scale))
+                resized = cv2.resize(img, (rw, rh), interpolation=cv2.INTER_AREA)
+                ox = img_x1 + (avail_w - rw) // 2
+                oy = img_y1 + (avail_h - rh) // 2
+                frame[oy:oy + rh, ox:ox + rw] = resized
+            else:
+                # fallback: big letter
+                (lw, lh), _ = cv2.getTextSize(letter,
+                                              cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)
+                lx = x1 + (cw - lw) // 2
+                ly = img_y1 + (img_y2 - img_y1 + lh) // 2
+                self._put(frame, letter, lx, ly, 1.5,
+                          color if active else (90, 90, 85), 4)
+
+            # divider above label
+            cv2.line(frame, (x1 + 6, y2 - LABEL_H),
+                     (x2 - 6, y2 - LABEL_H),
+                     color if active else (200, 200, 195), 1)
+
+            # label text
+            (tw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
+                                          0.50, 1)
+            tx = x1 + (cw - tw) // 2
+            ty = y2 - 6
+            self._put(frame, label, tx, ty, 0.50,
+                      color if active else (65, 65, 60),
+                      2 if active else 1)
 
     def _draw_action_workspace(self, frame):
         self._panel(frame, AW_X, AW_Y, AW_W, AW_H, "Action Workspace")
@@ -1688,6 +1891,32 @@ class App:
             is_drag = bool(self.dragging and self.dragging.id == s.id)
             is_hl   = s.id in self.highlighted
             in_slot = s.slot is not None
+
+            # Locked reference bricks render with a distinct desaturated
+            # look so the user immediately sees "this is an example, not
+            # a piece to move". F-mode hover and same-kind highlight
+            # still show through so find still feels responsive.
+            if s.locked:
+                alpha = 0.60
+                if is_hov and self.mode == "F":
+                    border = self.MODE_BGR["F"]
+                    bw = 3
+                elif is_hl:
+                    border = (180, 105, 255)
+                    bw = 3
+                else:
+                    border = (140, 140, 140)
+                    bw = 2 if is_hov else 1
+                draw_lego(frame, int(s.px), int(s.py), s.w, s.h, col,
+                          alpha_body=alpha, border=border, border_w=bw,
+                          highlight=False, n_studs=2)
+                # "EX" tag in the bottom-left so the label band reads
+                # "example" at a glance, distinct from pool bricks.
+                self._put(frame, "EX",
+                          int(s.px - s.w / 2) + 4,
+                          int(s.py + s.h / 2) - 4,
+                          0.36, (90, 90, 90), 1)
+                continue
 
             alpha = (0.96 if is_drag else
                      0.90 if (is_hov or in_slot or is_hl) else 0.85)

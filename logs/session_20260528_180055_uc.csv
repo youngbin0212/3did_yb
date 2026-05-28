@@ -1,0 +1,14 @@
+metric,value
+build,ut_c
+session_id,20260528_180055
+session_duration_s,51.77
+tasks_recorded,3
+tasks_completed,0
+total_actions,18
+unintentional_actions,0
+unintentional_rate,0.0
+recognition_accuracy_proxy,1.0
+frames_total,378
+frames_right_hand_detected,274
+right_hand_loss_rate,0.275
+panel_opens,2

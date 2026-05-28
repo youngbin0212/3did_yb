@@ -1,0 +1,5 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Practice 1 - Copy & Paste,0.009,144.82,144.811,3,0,4,0,7,0,3,5,0,True,0.0
+1,Practice 2 - Delete + Drag,147.332,201.428,54.096,4,0,2,0,4,0,2,2,0,True,0.0
+2,Practice 1 - Copy & Paste,203.96,232.197,28.237,3,0,4,0,4,0,0,0,0,True,0.0
+3,Practice 2 - Delete + Drag,234.75,242.214,7.464,4,0,0,0,0,0,0,0,0,False,0.0
