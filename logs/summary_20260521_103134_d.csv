@@ -1,3 +1,0 @@
-task_idx,name,task_type,subtype,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,action_batch_move,unintentional,completed,timeout,travel_distance,action_count,error_rate
-0,Gate,match,,0.09,10.668,10.578,14,0,0,0,0,0,0,0,0,0,False,False,0.0,0,0.0
-6,Sort by Color,classify,sort_color,10.669,61.368,50.699,18,0,0,3,11,0,1,0,0,0,False,False,0.0,0,0.0

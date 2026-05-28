@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
 """
-Gesture Workspace v5  (MediaPipe Tasks API)
+Gesture Workspace — BASELINE 2 (microGEXT-style, action-based)
 ============================================
-v5 adds a usability metrics logger on top of v4. On exit, three CSVs are
-written to ./logs/:
+Identical to asl_gesture12.py (same tasks, same UI scaffolding, same metrics
+logger) except the left-hand pose system is replaced with a microGEXT-style
+*action-based* vocabulary inspired by Yu et al. 2025 (arXiv:2504.04198):
+
+  Ring  (thumb tip meets ring fingertip)  -> Copy   on hovered brick
+  Pinky (thumb tip meets pinky fingertip) -> Paste  at pointer (snap to slot)
+  Fist  (all fingers curled)              -> Delete hovered brick
+  Open  (hand raised, all fingers up)     -> Undo   (no target needed)
+
+The OK sign (thumb+index) is left unbound (returns "unknown") so it
+can't accidentally fire any action.
+
+Differences from asl_gesture12.py:
+  - No modes. Each stable pose fires its action immediately, then a
+    refractory armed-flag prevents repeat-fire until the pose releases
+    back to "unknown".
+  - Right hand is still pointer+pinch (drag works in the neutral state).
+  - The instruction panel shows ui_image/baseline2.png as a static pose
+    reference instead of the 4 ASL cards.
+
+On exit, three CSVs are written to ./logs/:
   events_<id>.csv   one row per raw event (mode change, action, placement, ...)
   summary_<id>.csv  one row per task (duration, error rate, action counts)
   session_<id>.csv  session-wide totals incl. unintentional-action rate
@@ -52,8 +71,8 @@ from mediapipe.tasks.python import vision as mp_vision
 #  log filename so per-condition analysis can group sessions cleanly.
 # ──────────────────────────────────────────────
 
-BUILD_NAME = "ut_c"    # full label written into session CSV
-BUILD_TAG  = "uc"      # short suffix appended to log filenames
+BUILD_NAME = "ut_b_practice"   # full label written into session CSV
+BUILD_TAG  = "ub_practice"     # short suffix appended to log filenames
 
 # ──────────────────────────────────────────────
 #  Model
@@ -202,142 +221,89 @@ DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 #  Tasks  (target lego arrangements; reference images in tasks/)
 # ──────────────────────────────────────────────
 
+#  Practice mode — each task is a stripped-down version of its real
+#  counterpart in ut_b.py, tuned to be finishable in well under a minute.
+#  The goal is for the user to feel each pose once or twice before the
+#  full session starts: 4 pastes for copy, 4 drags for find, 5 deletes,
+#  5 undos.
+
 TASK_DEFS = [
-    # Task 1 — Copy (variant 1): Place 10 blocks in each colour box.
-    # The reference image shows 4 large coloured boxes in a 2x2 layout,
-    # each holding 10 blocks. We mirror that with a 10x4 grid split into
-    # four 5x2 quadrants — blue (top-left), green (top-right), yellow
-    # (bottom-left), red (bottom-right). 4 seed bricks live in the
-    # task workspace (one per colour); the user copies each one and
-    # pastes 10 times into the matching quadrant → 40 paste actions.
+    # Practice 1 — Copy (mini of Task 1): 2x2 boxes, 1 slot per colour.
+    # 4 seeds in the task workspace, 1 paste per box → 4 paste actions.
     {
-        "name": "Copy: 10 per box",
+        "name": "Practice 1 - Copy 2x2",
         "file": "1_copy1.png",
-        "cols": 10, "rows": 4,
+        "cols": 2, "rows": 2,
         "layout": [
-            # Top-left quadrant — blue (cols 0..4, rows 0..1)
-            *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 5)],
-            # Top-right quadrant — green (cols 5..9, rows 0..1)
-            *[(c, r, "green")  for r in range(0, 2) for c in range(5, 10)],
-            # Bottom-left quadrant — yellow (cols 0..4, rows 2..3)
-            *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 5)],
-            # Bottom-right quadrant — red (cols 5..9, rows 2..3)
-            *[(c, r, "red")    for r in range(2, 4) for c in range(5, 10)],
+            (0, 0, "blue"),  (1, 0, "green"),
+            (0, 1, "yellow"),(1, 1, "red"),
         ],
-        # Seeds live in the task workspace (consistent with Task 2) so
-        # the panel isn't empty and the source/destination split is
-        # visually obvious. Drag is also possible but only the 4 seeds
-        # exist, so finishing still requires C-mode copy + paste.
         "pool": ["blue", "green", "yellow", "red"],
     },
-    # Task 2 — Copy (variant 2): Copy each block 6 times.
-    # 4 source bricks live in the task workspace (the pool); for each one
-    # the user copies it and pastes 6 times into the matching coloured row.
+    # Practice 2 — Copy (mini of Task 2): 2 colours, copy each twice.
     {
-        "name": "Copy: 6 times each",
+        "name": "Practice 2 - Copy 2 times",
         "file": "2_copy2.png",
-        "cols": 6, "rows": 4,
+        "cols": 2, "rows": 2,
         "layout": [
-            *[(c, 0, "pink")   for c in range(6)],
-            *[(c, 1, "purple") for c in range(6)],
-            *[(c, 2, "green")  for c in range(6)],
-            *[(c, 3, "yellow") for c in range(6)],
+            (0, 0, "pink"),  (1, 0, "pink"),
+            (0, 1, "green"), (1, 1, "green"),
         ],
-        # Seeds live in the pool (one per colour) instead of pre-placed
-        # in slots — matches the "copy each block 6 times" framing where
-        # nothing is in the slots yet.
-        "pool": ["pink", "purple", "green", "yellow"],
+        "pool": ["pink", "green"],
     },
-    # Task 3 — Find: match similar-looking blocks.
-    # Row 0 holds 8 LOCKED reference bricks (the "examples") — visible
-    # at the top of the drop zone but immune to drag / copy / delete.
-    # F-mode still works on them, so the user can hover a reference and
-    # see the matching pool brick highlight. Row 1 below is where the
-    # answer slots live: the user matches each pool brick to the slot
-    # directly under the reference of the same shade. Pool ordering is
-    # shuffled so a position-based shortcut isn't possible.
+    # Practice 3 — Find (mini of Task 3): 4 shades instead of 8.
     {
-        "name": "Find: match shades",
+        "name": "Practice 3 - Find shades",
         "file": "3_find.png",
-        "cols": 8, "rows": 2,
+        "cols": 4, "rows": 2,
         "pre_placed": [
-            (0, 0, "b1"), (1, 0, "b2"), (2, 0, "b3"), (3, 0, "b4"),
-            (4, 0, "b5"), (5, 0, "b6"), (6, 0, "b7"), (7, 0, "b8"),
+            (0, 0, "b1"), (1, 0, "b3"), (2, 0, "b5"), (3, 0, "b7"),
         ],
         "layout": [
-            (0, 1, "b1"), (1, 1, "b2"), (2, 1, "b3"), (3, 1, "b4"),
-            (4, 1, "b5"), (5, 1, "b6"), (6, 1, "b7"), (7, 1, "b8"),
+            (0, 1, "b1"), (1, 1, "b3"), (2, 1, "b5"), (3, 1, "b7"),
         ],
-        # Non-trivial fixed order — user can't just drag straight down.
-        "pool": ["b5", "b1", "b8", "b3", "b6", "b2", "b7", "b4"],
+        "pool": ["b5", "b1", "b7", "b3"],
         "lock_pre_placed": True,
     },
-    # Task 4 — Delete: remove all non-red blocks.
-    # The grid starts FULLY pre-filled with a red heart pattern surrounded
-    # by blue + yellow intruders. The layout only lists the red positions,
-    # so to satisfy _check_answer the user has to X-mode delete every
-    # non-red brick (the "extras in non-layout slots" check rejects the
-    # board until they're all gone).
+    # Practice 4 — Delete (mini of Task 4): 3x3 with a + of red.
+    # 4 reds form a plus in the middle, surrounded by 5 non-reds the
+    # user has to Fist-delete (4 blue corners + 1 yellow centre).
     {
-        "name": "Delete: keep only red",
+        "name": "Practice 4 - Delete non-red",
         "file": "4_delete.png",
-        "cols": 5, "rows": 5,
+        "cols": 3, "rows": 3,
         "layout": [
-            # 8 red positions forming a heart
-                            (1, 1, "red"),                  (3, 1, "red"),
-            (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
-            (0, 3, "red"),                                                  (4, 3, "red"),
-                            (1, 4, "red"),                  (3, 4, "red"),
+                            (1, 0, "red"),
+            (0, 1, "red"),                 (2, 1, "red"),
+                            (1, 2, "red"),
         ],
         "pre_placed": [
-            # Row 0 — all blue border
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            # Row 1 — blue ends, red at heart-shoulders, yellow filler
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            # Row 2 — red at sides + middle, yellow between
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            # Row 3 — red at sides, yellow in middle
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            # Row 4 — blue ends, red taper, yellow filler
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pool": [],
-        # Red is the target to PRESERVE — X-mode pinches on red are
-        # no-ops. Stops a misfired pinch from corrupting the goal state.
         "delete_protect": "red",
     },
-    # Task 5 — Undo: restore everything that was deleted.
-    # Same 5×5 board as Task 4, but the non-red bricks are auto-deleted at
-    # load time (with one history snapshot pushed per deletion). The user
-    # restores them one Z-mode pinch at a time, until the full board is
-    # back. The layout lists ALL 25 positions, so completion requires
-    # every snapshot to be popped.
+    # Practice 5 — Undo (mini of Task 5): same 3x3 plus, but the 5
+    # non-reds are auto-deleted at load. User restores them with 5
+    # Open-pose pinches.
     {
-        "name": "Undo: restore blocks",
+        "name": "Practice 5 - Undo restore",
         "file": "5_undo.png",
-        "cols": 5, "rows": 5,
+        "cols": 3, "rows": 3,
         "layout": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pool": [],
-        # At load, pre-delete every brick whose kind != "red", recording
-        # one undo step per deletion. The user reverses those deletions
-        # with Z-mode pinches until the board is whole again.
         "auto_delete_preserve": "red",
-        # Red bricks are immune to X-mode here too: this task is about
-        # restoring with undo, not re-deleting reds the auto-load left
-        # alone. A stray pinch on a red shouldn't derail it.
         "delete_protect": "red",
     },
 ]
@@ -422,8 +388,9 @@ class Shape:
     kind:  str
     alive: bool   = True
     slot:  object = None
-    # Locked bricks are reference/example pieces — visible and F-mode
-    # targetable, but immune to drag, copy, paste-replace, and delete.
+    # Locked bricks are reference/example pieces — visible but immune
+    # to drag, copy, paste-replace, and delete. (con_b has no Find
+    # pose, so Find-mode bypass isn't relevant here.)
     locked: bool  = False
 
 # ──────────────────────────────────────────────
@@ -442,6 +409,19 @@ def _ext(lm, tip, pip, thresh=0.025):
     return lm[tip].y < lm[pip].y - thresh
 
 def classify_left(lm) -> str:
+    """Baseline 2 — microGEXT-style pose classifier.
+
+    Returns one of: "Ring", "Pinky", "Fist", "Open", or "unknown".
+
+    Finger-naming convention: "Ring" / "Pinky" identify *which finger
+    touches the thumb*. So:
+      Ring  = thumb tip meets ring-finger (4th) tip   -> Copy
+      Pinky = thumb tip meets pinky-finger (5th) tip  -> Paste
+      Fist  = all four fingers curled                 -> Delete
+      Open  = all four fingers extended (flat palm)   -> Undo
+    The OK sign (thumb + index) deliberately does NOT match anything —
+    it stays "unknown" so it can't accidentally fire Copy.
+    """
     idx_ext  = _ext(lm,  8,  6)
     mid_ext  = _ext(lm, 12, 10)
     ring_ext = _ext(lm, 16, 14)
@@ -452,23 +432,48 @@ def classify_left(lm) -> str:
     ring_curl = lm[16].y > lm[13].y + 0.01
     pnk_curl  = lm[20].y > lm[17].y + 0.01
 
-    d_ti = float(np.hypot(lm[4].x - lm[8].x, lm[4].y - lm[8].y))
+    def _d(a: int, b: int) -> float:
+        return float(np.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y))
 
-    if idx_ext and mid_ext and ring_ext and pnk_ext:
-        return "open"
+    d_ti = _d(4,  8)   # thumb-index
+    d_tm = _d(4, 12)   # thumb-middle
+    d_tr = _d(4, 16)   # thumb-ring
+    d_tp = _d(4, 20)   # thumb-pinky
+
+    # 1) Fist — all four fingers curled. Check first so a tightly closed
+    # hand doesn't accidentally satisfy a "tips touching" rule below.
     if idx_curl and mid_curl and ring_curl and pnk_curl:
-        return "fist"
-    if idx_ext and not mid_ext and not ring_ext and not pnk_ext:
-        return "Z"
-    if d_ti < 0.07 and mid_ext and ring_ext and pnk_ext:
-        return "F"
-    others_fully_curled = mid_curl and ring_curl and pnk_curl
-    if not mid_ext and not ring_ext and not pnk_ext and others_fully_curled:
-        return "X"
-    all_bent = (not idx_ext and not mid_ext and not ring_ext and not pnk_ext)
-    not_fist = not (idx_curl and mid_curl and ring_curl and pnk_curl)
-    if all_bent and not_fist and not others_fully_curled:
-        return "C"
+        return "Fist"
+
+    # 2) Ring — thumb tip touches ring fingertip. Two guards keep this
+    # from confusing with neighbouring gestures:
+    #   * ring distance must be CLEARLY smaller than pinky distance,
+    #     because anatomically the pinky often rides along with the ring
+    #     finger when the thumb reaches across
+    #   * thumb must be away from index and middle tips so the OK sign
+    #     (thumb+index) and other partial pinches don't false-trigger
+    if d_tr < 0.06 and d_tr + 0.02 < d_tp and d_ti > 0.10 and d_tm > 0.10:
+        return "Ring"
+
+    # 3) Pinky — thumb tip touches pinky fingertip. Symmetric to Ring.
+    if d_tp < 0.06 and d_tp + 0.02 < d_tr and d_ti > 0.10 and d_tm > 0.10:
+        return "Pinky"
+
+    # 4) Open — all four fingers extended AND raised so fingertips sit
+    # clearly above the wrist. The vertical requirement keeps this
+    # distinct from a relaxed flat hand at chest height: that pose would
+    # otherwise false-fire Undo every time the user simply lowers their
+    # left hand. The 0.15 margin in normalised y is roughly half a
+    # finger length, so deliberate raising clears it easily while a
+    # resting open hand does not.
+    if idx_ext and mid_ext and ring_ext and pnk_ext:
+        wrist_y = lm[0].y
+        if (lm[8].y  < wrist_y - 0.15
+                and lm[12].y < wrist_y - 0.15
+                and lm[16].y < wrist_y - 0.15
+                and lm[20].y < wrist_y - 0.15):
+            return "Open"
+
     return "unknown"
 
 def pinch_dist(lm) -> float:
@@ -637,10 +642,7 @@ class MetricsLogger:
 
     # ── panel reference count ──────────────────
     def log_panel_open(self):
-        """Record one user-initiated open of the gesture-guide panel.
-        Builds where the panel is always visible never call this, so
-        their session CSVs report panel_opens=0.
-        """
+        """Record one user-initiated open of the gesture-guide panel."""
         self._panel_opens += 1
         self.log_event("panel_open", count=self._panel_opens)
 
@@ -794,6 +796,11 @@ class App:
         self._pinch_start_t:   Optional[float] = None
         self._gesture_first_t: Optional[float] = None
         self._pending_gesture: Optional[str]   = None
+        # microGEXT refractory: True when the pose channel is ready to
+        # fire the next stable pose. Cleared after a fire and re-armed
+        # when the pose returns to "unknown" — so the user must release
+        # the pose before it can fire again.
+        self._pose_armed:      bool = True
         # Instruction Panel auto-show: hidden by default, revealed for
         # GUIDE_REVEAL_S seconds whenever the user does any pinch.
         self._guide_until_t:   float = 0.0
@@ -811,46 +818,38 @@ class App:
     # ── gesture image loader ─────────────────
 
     def _load_gesture_images(self):
-        """Load ui_image/gesture_{c,f,x,z}.png. Returns dict keyed by letter,
-        or {} if files are missing (panel falls back to plain letters)."""
+        """Baseline 2 loads a single reference image (ui_image/baseline2.png)
+        that summarises the four microGEXT poses. Falls back to None if
+        the file is missing — the panel will then show a text-only hint.
+        """
         here = os.path.dirname(os.path.abspath(__file__))
-        search_dirs = [
-            os.path.join(here, "ui_image"),
-            here,
-        ]
-        out = {}
-        for letter in ("C", "F", "X", "Z"):
-            fn = f"gesture_{letter.lower()}.png"
-            for d in search_dirs:
-                p = os.path.join(d, fn)
-                if os.path.exists(p):
-                    img = cv2.imread(p)
-                    if img is not None:
-                        out[letter] = img
-                        break
-        missing = [k for k in ("C", "F", "X", "Z") if k not in out]
-        if missing:
-            print(f"[info] Instruction Panel: missing gesture images for {missing} "
-                  f"-> those will fall back to a letter.")
-        else:
-            print(f"Instruction Panel: loaded gesture images for C/F/X/Z.")
-        return out
+        for d in (os.path.join(here, "ui_image"), here):
+            p = os.path.join(d, "baseline2.png")
+            if os.path.exists(p):
+                img = cv2.imread(p)
+                if img is not None:
+                    print(f"Instruction Panel: loaded {p}")
+                    return img
+        print("[info] Instruction Panel: ui_image/baseline2.png not found "
+              "-> falling back to text hint.")
+        return None
 
     # ── task management ──────────────────────
 
     def _load_tasks(self):
-        """Load reference images for each TASK_DEFS entry."""
-        here = os.path.dirname(os.path.abspath(__file__))
-        tasks_dir = os.path.join(here, "tasks_ver2")
+        """Load reference images for each TASK_DEFS entry.
+
+        Practice build: every reference image carries the instruction
+        text on it ("Copy each block 6 times", "Remove all other
+        blocks", ...), which gives away which pose the task tests.
+        We deliberately skip loading the images here so the reference
+        panel falls back to a wordless mini-layout — the participant
+        has to read the goal off the grid + drop-zone state alone.
+        """
         result = []
         for d in TASK_DEFS:
             t = dict(d)
-            p = os.path.join(tasks_dir, d["file"])
-            t["image"] = cv2.imread(p) if os.path.exists(p) else None
-            if t["image"] is None:
-                print(f"[info] Task image missing: {p}")
-            else:
-                print(f"Task image loaded: {p}")
+            t["image"] = None
             result.append(t)
         return result
 
@@ -1037,9 +1036,9 @@ class App:
         layout = t["layout"]
         pre_placed = t.get("pre_placed", [])
 
-        # 1) Pre-placed bricks go directly into their slots (action workspace).
-        #    When `lock_pre_placed` is set, those pre-placed bricks become
-        #    reference/example pieces — visible to F-mode but immune to
+        # 1) Pre-placed bricks go directly into their slots (action
+        #    workspace). When `lock_pre_placed` is set, those bricks
+        #    become reference/example pieces — visible but immune to
         #    drag / copy / paste-replace / delete.
         lock_pre_placed = bool(t.get("lock_pre_placed", False))
         labels_pre = "abcdefghijklmnop"
@@ -1058,10 +1057,11 @@ class App:
             self._next_id += 1
 
         # 2) Pool: a task can either provide an explicit `pool` list
-        #    (e.g. the new Copy / Find / Delete / Undo tasks, where the
-        #    pool is hand-picked to force a specific gesture) or fall
-        #    back to the legacy auto-fill: every slot that still needs a
-        #    correct brick gets one in the pool, plus distractors.
+        #    (e.g. the new Copy / Find / Delete / Undo tasks, where
+        #    the pool is hand-picked to force a specific gesture) or
+        #    fall back to the legacy auto-fill: every slot that still
+        #    needs a correct brick gets one in the pool, plus
+        #    distractors.
         explicit_pool = t.get("pool")
         if explicit_pool is not None:
             pool = list(explicit_pool)
@@ -1070,9 +1070,6 @@ class App:
             needed = [exp for c, r, exp in layout if placed.get((c, r)) != exp]
             pool_size = max(len(needed) + 3, 12)
             pool = list(needed)
-            # Find-task tasks specify their own narrow distractor palette
-            # (target + visually-similar colors). Other tasks fall back to
-            # the default 6-colour set.
             allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
             while len(pool) < pool_size:
                 pool.append(random.choice(allowed))
@@ -1098,7 +1095,7 @@ class App:
         # 3) Optional auto-deletion. Used by the Undo task to seed the
         #    board with a "you've already deleted these" state plus a
         #    matching undo stack — one snapshot per deletion — so the
-        #    user can roll the board back one Z-pinch at a time.
+        #    user can roll the board back one Open-pose pinch at a time.
         preserve_kind = t.get("auto_delete_preserve")
         if preserve_kind is not None:
             to_delete = [
@@ -1124,10 +1121,9 @@ class App:
 
     def _is_paste_target(self, shape) -> bool:
         """True if a pinch in C mode would PASTE (replace) onto `shape`
-        instead of copying it. Triggered when clipboard has content and
-        the hovered brick is sitting in a slot — i.e. the user is aiming
-        at the drop zone to swap a piece. Locked reference bricks are
-        never paste targets (the user can't overwrite an example)."""
+        instead of copying it. con_b has no C mode (paste fires from
+        the Pinky pose), so this stays False here — kept for UI parity
+        with con_c. Locked references are never paste targets either."""
         return (self.mode == "C"
                 and self.clipboard is not None
                 and shape is not None
@@ -1144,9 +1140,9 @@ class App:
                 return False
         # Reject extras occupying a non-layout slot — the Delete task's
         # win condition is "only the listed (red) slots are filled and
-        # nothing else", which we enforce here. Locked reference bricks
-        # are exempt (they live in their own row above the target slots
-        # and are part of the puzzle setup, not extras).
+        # nothing else". Locked reference bricks (Task 3) are exempt —
+        # they sit above the target slots and are part of the puzzle
+        # setup, not extras to clean up.
         for s in self.shapes:
             if s.alive and s.slot is not None and s.slot not in layout_slots:
                 if s.locked:
@@ -1159,7 +1155,11 @@ class App:
         self._correct_t = 0.0
         self._load_task()
         idx = self.task_idx % len(self.tasks)
-        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!")
+        # Practice build: deliberately suppress the task name in the
+        # user-facing notification — the participant should infer which
+        # pose to use from the reference image alone, not from a
+        # "Copy" / "Find" label.
+        self._notify(f"Task {idx + 1}!")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1168,15 +1168,23 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}")
+        self._notify(f"Jumped to Task {idx + 1}")
 
     # ── helpers ──────────────────────────────
 
     def _push(self, g: str):
+        """Baseline 2 — microGEXT action firing.
+
+        Mode never changes (stays "open" forever); instead, when a pose
+        (Ring/Pinky/Fist/Open) stabilises for STABLE frames, _fire_pose
+        is called once. A refractory armed-flag prevents repeat-fire
+        while the pose is held; the flag re-arms when the pose returns
+        to "unknown" (i.e. user releases the pose).
+        """
         self._last_left = g
 
-        # Commit-latency tracking: record when a new gesture first appears,
-        # so we can measure how long until it stabilizes into a mode.
+        # Track when a new pose first appears so response_latency_s
+        # can be measured from "pose started forming" -> "fired".
         if g != "unknown":
             if self._pending_gesture != g:
                 self._pending_gesture = g
@@ -1184,24 +1192,25 @@ class App:
         else:
             self._pending_gesture = None
             self._gesture_first_t = None
+            # User released the pose -> ready to fire next stable pose.
+            self._pose_armed = True
 
         self._buf.append(g)
         if len(self._buf) > self.STABLE:
             self._buf.pop(0)
+
         if len(self._buf) == self.STABLE and len(set(self._buf)) == 1:
             self._stable_count = self.STABLE
             new = self._buf[0]
-            if new in ("C", "F", "X", "Z", "open"):
-                if new != self.mode:
+            if new in ("Ring", "Pinky", "Fist", "Open"):
+                # Drag has priority over pose: if the user is currently
+                # pinching, the pose channel is suppressed so brick
+                # manipulation isn't interrupted.
+                if self._pose_armed and not self.r_pinch:
                     latency = ((time.time() - self._gesture_first_t)
                                if self._gesture_first_t else 0.0)
-                    old_mode = self.mode
-                    # Clear the F-mode "find" highlight on any mode change.
-                    self.highlighted.clear()
-                    self.mode = new
-                    self.metrics.log_mode_change(old_mode, new, latency)
-                    self._pending_gesture = None
-                    self._gesture_first_t = None
+                    self._fire_pose(new, latency)
+                    self._pose_armed = False
         else:
             # count contiguous matches at the tail
             tail = self._buf[-1]
@@ -1224,13 +1233,155 @@ class App:
         self._notif   = msg
         self._notif_t = time.time()
 
+    # ── microGEXT pose firing (baseline 2) ───
+    def _fire_pose(self, pose: str, latency: float):
+        """Dispatch an action immediately from a stable left-hand pose.
+        Uses self.hovered as the target (for Ring/Fist) and self.r_ptr
+        as the paste position (for Pinky). Open fires Undo with no
+        target. All actions log through MetricsLogger using the same
+        action labels as asl_gesture12.py (C / X / Z) so summary CSVs
+        stay directly comparable between builds.
+        """
+        obj = self.hovered
+
+        if pose == "Ring":
+            # Copy the hovered brick (pool or slot).
+            if obj is not None and obj.locked:
+                # Locked references cannot be copied.
+                self._notify("Reference — can't copy")
+                self.metrics.log_action("C", latency,
+                                        blocked=True,
+                                        target=obj.label, kind=obj.kind)
+            elif obj is not None:
+                self.clipboard = copy.copy(obj)
+                self._notify(f"Copied: {obj.label}")
+                self.metrics.log_action("C", latency,
+                                        subaction="copy",
+                                        target=obj.label, kind=obj.kind)
+            else:
+                self._notify("Hover a brick to Copy")
+                self.metrics.log_action("C", latency,
+                                        subaction="no_target")
+            return
+
+        if pose == "Pinky":
+            # Paste at the pointer, snapping to a slot if close enough.
+            if self.clipboard is None:
+                self._notify("Clipboard empty")
+                self.metrics.log_action("C", latency,
+                                        subaction="empty_clipboard")
+                return
+            if self.r_ptr is None:
+                self._notify("Move pointer into view to Paste")
+                self.metrics.log_action("C", latency,
+                                        subaction="no_pointer")
+                return
+
+            self._push_history()
+            new       = copy.copy(self.clipboard)
+            new.id    = self._next_id
+            stud_h    = max(7, new.h // 8)
+            cx, cy    = self.r_ptr[0], self.r_ptr[1] - stud_h / 2
+
+            snap = self._nearest_slot(
+                cx, cy, brick_w=new.w, brick_h=new.h
+            )
+            if snap is not None:
+                for other in self.shapes:
+                    if other.alive and other.slot == snap:
+                        other.slot = None
+                        fx, fy = self._find_pool_free_pos()
+                        other.px, other.py = float(fx), float(fy)
+                sx, sy   = self._slot_center(*snap)
+                new.px   = float(sx)
+                new.py   = float(sy)
+                new.slot = snap
+            else:
+                new.px   = cx
+                new.py   = cy
+                new.slot = None
+
+            new.label = self.clipboard.label + "'"
+            new.alive = True
+            self.shapes.append(new)
+            self._next_id += 1
+
+            if snap is not None:
+                self.metrics.log_placement(
+                    expected=self._slot_expected(snap),
+                    actual=new.kind, source="paste")
+
+            self.metrics.log_action("C", latency,
+                                    subaction="paste",
+                                    pasted=new.label, kind=new.kind,
+                                    snapped=(snap is not None))
+
+            if snap is not None and self._check_answer():
+                self._correct_t = time.time()
+                self.metrics.end_task(completed=True)
+
+            self._notify(f"Pasted: {new.label}"
+                         + (" -> slot" if snap is not None else ""))
+            return
+
+        if pose == "Fist":
+            # Delete the hovered brick. A stray Fist on a "protected"
+            # kind (e.g. red in the Delete / Undo tasks) or on a locked
+            # reference is rejected so an unstable pose can't corrupt
+            # the goal state.
+            if obj is not None:
+                t = self.tasks[self.task_idx % len(self.tasks)]
+                protect = t.get("delete_protect")
+                if obj.locked:
+                    self._notify("Reference — can't delete")
+                    self.metrics.log_action("X", latency,
+                                            blocked=True,
+                                            target=obj.label, kind=obj.kind)
+                elif protect is not None and obj.kind == protect:
+                    self._notify(f"{obj.kind.capitalize()} is protected")
+                    self.metrics.log_action("X", latency,
+                                            blocked=True,
+                                            target=obj.label, kind=obj.kind)
+                else:
+                    self._push_history()
+                    obj.alive = False
+                    obj.slot  = None
+                    self.highlighted.discard(obj.id)
+                    self._notify(f"Deleted: {obj.label}")
+                    self.metrics.log_action("X", latency,
+                                            target=obj.label, kind=obj.kind)
+                    # The Delete task completes when every non-target
+                    # brick is gone — re-check after each deletion.
+                    if self._check_answer():
+                        self._correct_t = time.time()
+                        self.metrics.end_task(completed=True)
+            else:
+                self._notify("Hover a brick to Delete")
+                self.metrics.log_action("X", latency, subaction="no_target")
+            return
+
+        if pose == "Open":
+            # Undo the most recent destructive action.
+            if self._history:
+                self._restore_snapshot(self._history.pop())
+                self._notify(f"Undo (steps left: {len(self._history)})")
+                self.metrics.log_action("Z", latency,
+                                        remaining=len(self._history))
+                # Undo task completes once the last snapshot has been
+                # popped and the full pre-deleted board is back.
+                if self._check_answer():
+                    self._correct_t = time.time()
+                    self.metrics.end_task(completed=True)
+            else:
+                self._notify("Nothing to undo")
+                self.metrics.log_action("Z", latency, subaction="empty_history")
+            return
+
     def _action_hint(self) -> str:
         """One-line preview of what the next pinch will do, given the
         current mode + cursor + clipboard state. Empty string when the
         action would be a no-op or the mode doesn't need a hint."""
         if self.mode == "C":
-            if self.hovered is not None and self.hovered.locked:
-                return "(Reference — can't copy)"
             paste_over = self._is_paste_target(self.hovered)
             if self.hovered is not None and not paste_over:
                 return f"Copy '{self.hovered.label}'"
@@ -1243,11 +1394,6 @@ class App:
         if self.mode == "F" and self.hovered is not None:
             return f"Find {self.hovered.kind} pieces"
         if self.mode == "X" and self.hovered is not None:
-            if self.hovered.locked:
-                return "(Reference — can't delete)"
-            t = self.tasks[self.task_idx % len(self.tasks)]
-            if t.get("delete_protect") == self.hovered.kind:
-                return f"(You can't delete this {self.hovered.kind} block.)"
             return f"Delete '{self.hovered.label}'"
         if self.mode == "Z" and self._history:
             return f"Undo (stack: {len(self._history)})"
@@ -1261,13 +1407,7 @@ class App:
                    if self._pinch_start_t else 0.0)
         if self.mode == "C":
             paste_over = self._is_paste_target(obj)
-            if obj is not None and obj.locked:
-                # Locked references cannot be copied OR overwritten.
-                self._notify("Reference — can't copy")
-                self.metrics.log_action("C", latency,
-                                        blocked=True,
-                                        target=obj.label, kind=obj.kind)
-            elif obj and not paste_over:
+            if obj and not paste_over:
                 self.clipboard = copy.copy(obj)
                 self._notify(f"Copied: {obj.label}")
                 self.metrics.log_action("C", latency,
@@ -1342,46 +1482,19 @@ class App:
                                         count=len(self.highlighted))
         elif self.mode == "X":
             if obj:
-                # Per-task delete guard: a stray pinch on a "protected"
-                # kind (e.g. red in the Delete / Undo tasks) or on a
-                # locked reference is rejected so an unstable pinch can't
-                # corrupt the goal state.
-                t = self.tasks[self.task_idx % len(self.tasks)]
-                protect = t.get("delete_protect")
-                if obj.locked:
-                    self._notify("Reference — can't delete")
-                    self.metrics.log_action("X", latency,
-                                            blocked=True,
-                                            target=obj.label, kind=obj.kind)
-                elif protect is not None and obj.kind == protect:
-                    self._notify(f"{obj.kind.capitalize()} is protected")
-                    self.metrics.log_action("X", latency,
-                                            blocked=True,
-                                            target=obj.label, kind=obj.kind)
-                else:
-                    self._push_history()
-                    obj.alive = False
-                    obj.slot  = None
-                    self.highlighted.discard(obj.id)
-                    self._notify(f"Deleted: {obj.label}")
-                    self.metrics.log_action("X", latency,
-                                            target=obj.label, kind=obj.kind)
-                    # The Delete task completes when every non-target brick
-                    # is gone, so we have to re-check after each deletion.
-                    if self._check_answer():
-                        self._correct_t = time.time()
-                        self.metrics.end_task(completed=True)
+                self._push_history()
+                obj.alive = False
+                obj.slot  = None
+                self.highlighted.discard(obj.id)
+                self._notify(f"Deleted: {obj.label}")
+                self.metrics.log_action("X", latency,
+                                        target=obj.label, kind=obj.kind)
         elif self.mode == "Z":
             if self._history:
                 self._restore_snapshot(self._history.pop())
                 self._notify(f"Undo (steps left: {len(self._history)})")
                 self.metrics.log_action("Z", latency,
                                         remaining=len(self._history))
-                # Undo task completes once the last snapshot has been
-                # popped and the full pre-deleted board is back.
-                if self._check_answer():
-                    self._correct_t = time.time()
-                    self.metrics.end_task(completed=True)
 
     # ── update ───────────────────────────────
 
@@ -1423,13 +1536,10 @@ class App:
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
                 self._pinch_start_t = time.time()
-                # Reveal the gesture-guide panel only when the pinch
-                # lands inside the Instruction Panel rectangle. Pinches
-                # elsewhere (workspaces, sidebar) leave it hidden so it
-                # doesn't pop open every time the user grabs a brick.
-                # Each IP-area pinch is logged as a panel_open event,
-                # giving a session-level "how often did the user need a
-                # cheat-sheet refresher" count.
+                # Reveal the gesture-poses panel only when the pinch
+                # lands inside the Instruction Panel rectangle. Each
+                # IP-area pinch is logged as a panel_open event for the
+                # session-level cheat-sheet-usage count.
                 if (IP_X <= ix <= IP_X + IP_W
                         and IP_Y <= iy <= IP_Y + IP_H):
                     self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
@@ -1444,7 +1554,7 @@ class App:
                     if not self._prev_pin:
                         hit = self._hit(ix, iy)
                         # Locked reference bricks are not draggable —
-                        # the open-mode pinch passes right through them.
+                        # the pinch passes right through them.
                         if hit and not hit.locked:
                             # Snapshot BEFORE we mutate the picked-up
                             # brick, so undo can fully rewind the drag.
@@ -1633,7 +1743,8 @@ class App:
         layout = t["layout"]
 
         # subtitle (task name)
-        title = f"Task {idx + 1}: {t['name']}"
+        # Practice build: title shows only the number (no Copy/Find/etc.)
+        title = f"Task {idx + 1}"
         self._put(frame, title, RF_X + 12, RF_Y + 52, 0.46, (80, 80, 75))
 
         # task image (the visual goal)
@@ -1719,13 +1830,14 @@ class App:
                       0.50, (220, 225, 200))
 
     def _draw_instruction_panel(self, frame):
-        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Gesture Shortcuts")
+        # Baseline 2 (updated): hidden by default to match con_c's cheat-
+        # sheet pattern. Pinching inside the panel rectangle reveals it
+        # for GUIDE_REVEAL_S seconds and logs a panel_open event, so the
+        # session-level panel_opens count is directly comparable to con_c.
+        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Gesture Poses")
 
-        # Hide the gesture cards by default. They reveal for
-        # GUIDE_REVEAL_S after any pinch, then fade back to hidden so
-        # the panel doesn't crowd the screen during normal play.
         if time.time() >= self._guide_until_t:
-            hint = "Pinch to show gesture guide"
+            hint = "Pinch panel to show gesture poses"
             (tw, _), _ = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX,
                                           0.46, 1)
             self._put(frame, hint,
@@ -1734,80 +1846,36 @@ class App:
                       0.46, (140, 140, 135))
             return
 
-        cards = [
-            ("C", "Copy",   self.MODE_BGR["C"]),
-            ("F", "Find",   self.MODE_BGR["F"]),
-            ("X", "Delete", self.MODE_BGR["X"]),
-            ("Z", "Undo",   self.MODE_BGR["Z"]),
-        ]
-        n = len(cards)
-        pad = 8
-        ix = IP_X + pad
-        iy = IP_Y + 38
-        iw = IP_W - 2 * pad
-        ih = IP_H - 46
-        cw = (iw - (n - 1) * pad) // n
+        img = self._gesture_imgs
+        if img is None:
+            hint = "ui_image/baseline2.png missing"
+            (tw, _), _ = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX,
+                                          0.46, 1)
+            self._put(frame, hint,
+                      IP_X + (IP_W - tw) // 2,
+                      IP_Y + IP_H // 2 + 4,
+                      0.46, (140, 140, 135))
+            return
 
-        # vertical split inside each card: photo on top, label below
-        LABEL_H = 22
-        IMG_PAD = 4
-
-        for i, (letter, label, color) in enumerate(cards):
-            x1 = ix + i * (cw + pad)
-            y1 = iy
-            x2 = x1 + cw
-            y2 = y1 + ih
-            active = (self.mode == letter)
-
-            # card background
-            if active:
-                self._fill(frame, x1, y1, x2, y2, color, 0.18)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            else:
-                cv2.rectangle(frame, (x1, y1), (x2, y2),
-                              (235, 235, 230), -1)
-                cv2.rectangle(frame, (x1, y1), (x2, y2),
-                              (180, 180, 175), 1)
-
-            # photo region
-            img_x1 = x1 + IMG_PAD
-            img_x2 = x2 - IMG_PAD
-            img_y1 = y1 + IMG_PAD
-            img_y2 = y2 - LABEL_H - IMG_PAD
-            img = self._gesture_imgs.get(letter)
-
-            if img is not None:
-                sh, sw = img.shape[:2]
-                avail_w = img_x2 - img_x1
-                avail_h = img_y2 - img_y1
-                scale = min(avail_w / sw, avail_h / sh)
-                rw, rh = max(1, int(sw * scale)), max(1, int(sh * scale))
-                resized = cv2.resize(img, (rw, rh), interpolation=cv2.INTER_AREA)
-                ox = img_x1 + (avail_w - rw) // 2
-                oy = img_y1 + (avail_h - rh) // 2
-                frame[oy:oy + rh, ox:ox + rw] = resized
-            else:
-                # fallback: big letter
-                (lw, lh), _ = cv2.getTextSize(letter,
-                                              cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)
-                lx = x1 + (cw - lw) // 2
-                ly = img_y1 + (img_y2 - img_y1 + lh) // 2
-                self._put(frame, letter, lx, ly, 1.5,
-                          color if active else (90, 90, 85), 4)
-
-            # divider above label
-            cv2.line(frame, (x1 + 6, y2 - LABEL_H),
-                     (x2 - 6, y2 - LABEL_H),
-                     color if active else (200, 200, 195), 1)
-
-            # label text
-            (tw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            tx = x1 + (cw - tw) // 2
-            ty = y2 - 6
-            self._put(frame, label, tx, ty, 0.50,
-                      color if active else (65, 65, 60),
-                      2 if active else 1)
+        # Fit the reference image into the panel's body region.
+        body_x1 = IP_X + 8
+        body_y1 = IP_Y + 38
+        body_x2 = IP_X + IP_W - 8
+        body_y2 = IP_Y + IP_H - 10
+        avail_w = body_x2 - body_x1
+        avail_h = body_y2 - body_y1
+        if avail_w <= 0 or avail_h <= 0:
+            return
+        sh, sw = img.shape[:2]
+        scale = min(avail_w / sw, avail_h / sh)
+        rw, rh = max(1, int(sw * scale)), max(1, int(sh * scale))
+        resized = cv2.resize(img, (rw, rh), interpolation=cv2.INTER_AREA)
+        ox = body_x1 + (avail_w - rw) // 2
+        oy = body_y1 + (avail_h - rh) // 2
+        frame[oy:oy + rh, ox:ox + rw] = resized
+        cv2.rectangle(frame, (ox - 1, oy - 1),
+                      (ox + rw + 1, oy + rh + 1),
+                      (180, 180, 175), 1)
 
     def _draw_action_workspace(self, frame):
         self._panel(frame, AW_X, AW_Y, AW_W, AW_H, "Action Workspace")
@@ -1892,26 +1960,17 @@ class App:
             is_hl   = s.id in self.highlighted
             in_slot = s.slot is not None
 
-            # Locked reference bricks render with a distinct desaturated
-            # look so the user immediately sees "this is an example, not
-            # a piece to move". F-mode hover and same-kind highlight
-            # still show through so find still feels responsive.
+            # Locked reference bricks render desaturated with a neutral
+            # outline so the user reads them as "examples, not movable".
+            # con_b has no F pose, so locked bricks are purely visual
+            # reference — they can't be hovered to drive any action.
             if s.locked:
                 alpha = 0.60
-                if is_hov and self.mode == "F":
-                    border = self.MODE_BGR["F"]
-                    bw = 3
-                elif is_hl:
-                    border = (180, 105, 255)
-                    bw = 3
-                else:
-                    border = (140, 140, 140)
-                    bw = 2 if is_hov else 1
+                border = (140, 140, 140)
+                bw = 2 if is_hov else 1
                 draw_lego(frame, int(s.px), int(s.py), s.w, s.h, col,
                           alpha_body=alpha, border=border, border_w=bw,
                           highlight=False, n_studs=2)
-                # "EX" tag in the bottom-left so the label band reads
-                # "example" at a glance, distinct from pool bricks.
                 self._put(frame, "EX",
                           int(s.px - s.w / 2) + 4,
                           int(s.py + s.h / 2) - 4,

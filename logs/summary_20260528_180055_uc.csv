@@ -1,4 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Copy: 10 per box,0.093,4.731,4.638,40,0,0,0,0,0,0,0,0,False,0.0
-2,Find: match shades,4.731,38.611,33.88,8,0,0,1,0,15,0,0,0,False,0.0
-4,Undo: restore blocks,38.611,51.767,13.156,25,0,0,2,1,0,2,0,0,False,0.0

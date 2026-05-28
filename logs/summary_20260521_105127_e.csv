@@ -1,3 +1,0 @@
-task_idx,name,task_type,subtype,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,action_batch_move,action_batch_delete,unintentional,completed,timeout,travel_distance,action_count,error_rate
-0,Gate,match,,0.073,3.437,3.364,14,0,0,0,0,0,0,0,0,0,0,False,False,0.0,0,0.0
-6,Cleanup & Sort (Easy),classify,cleanup_sort,3.438,67.426,63.988,0,0,0,6,8,0,0,0,0,0,0,False,False,0.0,0,0.0

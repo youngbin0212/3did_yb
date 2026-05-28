@@ -52,8 +52,8 @@ from mediapipe.tasks.python import vision as mp_vision
 #  log filename so per-condition analysis can group sessions cleanly.
 # ──────────────────────────────────────────────
 
-BUILD_NAME = "ut_c"    # full label written into session CSV
-BUILD_TAG  = "uc"      # short suffix appended to log filenames
+BUILD_NAME = "ut_c_practice"   # full label written into session CSV
+BUILD_TAG  = "uc_practice"     # short suffix appended to log filenames
 
 # ──────────────────────────────────────────────
 #  Model
@@ -202,142 +202,92 @@ DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 #  Tasks  (target lego arrangements; reference images in tasks/)
 # ──────────────────────────────────────────────
 
+#  Practice mode — each task is a stripped-down version of its real
+#  counterpart in ut_c.py, tuned to be finishable in well under a minute.
+#  The goal is for the user to feel each gesture once or twice before the
+#  full session starts: 4 pastes for copy, 4 drags for find, 5 deletes,
+#  5 undos. Same files as the main build are reused for reference images.
+
 TASK_DEFS = [
-    # Task 1 — Copy (variant 1): Place 10 blocks in each colour box.
-    # The reference image shows 4 large coloured boxes in a 2x2 layout,
-    # each holding 10 blocks. We mirror that with a 10x4 grid split into
-    # four 5x2 quadrants — blue (top-left), green (top-right), yellow
-    # (bottom-left), red (bottom-right). 4 seed bricks live in the
-    # task workspace (one per colour); the user copies each one and
-    # pastes 10 times into the matching quadrant → 40 paste actions.
+    # Practice 1 — Copy (mini of Task 1): 2x2 boxes, 1 slot per colour.
+    # 4 seeds in the task workspace, 1 paste per box → 4 paste actions.
     {
-        "name": "Copy: 10 per box",
+        "name": "Practice 1 - Copy 2x2",
         "file": "1_copy1.png",
-        "cols": 10, "rows": 4,
+        "cols": 2, "rows": 2,
         "layout": [
-            # Top-left quadrant — blue (cols 0..4, rows 0..1)
-            *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 5)],
-            # Top-right quadrant — green (cols 5..9, rows 0..1)
-            *[(c, r, "green")  for r in range(0, 2) for c in range(5, 10)],
-            # Bottom-left quadrant — yellow (cols 0..4, rows 2..3)
-            *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 5)],
-            # Bottom-right quadrant — red (cols 5..9, rows 2..3)
-            *[(c, r, "red")    for r in range(2, 4) for c in range(5, 10)],
+            (0, 0, "blue"),  (1, 0, "green"),
+            (0, 1, "yellow"),(1, 1, "red"),
         ],
-        # Seeds live in the task workspace (consistent with Task 2) so
-        # the panel isn't empty and the source/destination split is
-        # visually obvious. Drag is also possible but only the 4 seeds
-        # exist, so finishing still requires C-mode copy + paste.
         "pool": ["blue", "green", "yellow", "red"],
     },
-    # Task 2 — Copy (variant 2): Copy each block 6 times.
-    # 4 source bricks live in the task workspace (the pool); for each one
-    # the user copies it and pastes 6 times into the matching coloured row.
+    # Practice 2 — Copy (mini of Task 2): 2 colours, copy each twice.
+    # 2 seeds in the pool, each pasted into a 2-slot row → 4 pastes.
     {
-        "name": "Copy: 6 times each",
+        "name": "Practice 2 - Copy 2 times",
         "file": "2_copy2.png",
-        "cols": 6, "rows": 4,
+        "cols": 2, "rows": 2,
         "layout": [
-            *[(c, 0, "pink")   for c in range(6)],
-            *[(c, 1, "purple") for c in range(6)],
-            *[(c, 2, "green")  for c in range(6)],
-            *[(c, 3, "yellow") for c in range(6)],
+            (0, 0, "pink"),  (1, 0, "pink"),
+            (0, 1, "green"), (1, 1, "green"),
         ],
-        # Seeds live in the pool (one per colour) instead of pre-placed
-        # in slots — matches the "copy each block 6 times" framing where
-        # nothing is in the slots yet.
-        "pool": ["pink", "purple", "green", "yellow"],
+        "pool": ["pink", "green"],
     },
-    # Task 3 — Find: match similar-looking blocks.
-    # Row 0 holds 8 LOCKED reference bricks (the "examples") — visible
-    # at the top of the drop zone but immune to drag / copy / delete.
-    # F-mode still works on them, so the user can hover a reference and
-    # see the matching pool brick highlight. Row 1 below is where the
-    # answer slots live: the user matches each pool brick to the slot
-    # directly under the reference of the same shade. Pool ordering is
-    # shuffled so a position-based shortcut isn't possible.
+    # Practice 3 — Find (mini of Task 3): 4 shades instead of 8.
+    # Row 0 holds 4 locked references; row 1 has the answer slots; the
+    # 4-brick pool is shuffled so the user can't drop-straight-down.
     {
-        "name": "Find: match shades",
+        "name": "Practice 3 - Find shades",
         "file": "3_find.png",
-        "cols": 8, "rows": 2,
+        "cols": 4, "rows": 2,
         "pre_placed": [
-            (0, 0, "b1"), (1, 0, "b2"), (2, 0, "b3"), (3, 0, "b4"),
-            (4, 0, "b5"), (5, 0, "b6"), (6, 0, "b7"), (7, 0, "b8"),
+            (0, 0, "b1"), (1, 0, "b3"), (2, 0, "b5"), (3, 0, "b7"),
         ],
         "layout": [
-            (0, 1, "b1"), (1, 1, "b2"), (2, 1, "b3"), (3, 1, "b4"),
-            (4, 1, "b5"), (5, 1, "b6"), (6, 1, "b7"), (7, 1, "b8"),
+            (0, 1, "b1"), (1, 1, "b3"), (2, 1, "b5"), (3, 1, "b7"),
         ],
-        # Non-trivial fixed order — user can't just drag straight down.
-        "pool": ["b5", "b1", "b8", "b3", "b6", "b2", "b7", "b4"],
+        "pool": ["b5", "b1", "b7", "b3"],
         "lock_pre_placed": True,
     },
-    # Task 4 — Delete: remove all non-red blocks.
-    # The grid starts FULLY pre-filled with a red heart pattern surrounded
-    # by blue + yellow intruders. The layout only lists the red positions,
-    # so to satisfy _check_answer the user has to X-mode delete every
-    # non-red brick (the "extras in non-layout slots" check rejects the
-    # board until they're all gone).
+    # Practice 4 — Delete (mini of Task 4): 3x3 with a + of red.
+    # 4 reds form a plus in the middle, surrounded by 5 non-reds the
+    # user has to X-delete (4 blue corners + 1 yellow centre).
     {
-        "name": "Delete: keep only red",
+        "name": "Practice 4 - Delete non-red",
         "file": "4_delete.png",
-        "cols": 5, "rows": 5,
+        "cols": 3, "rows": 3,
         "layout": [
-            # 8 red positions forming a heart
-                            (1, 1, "red"),                  (3, 1, "red"),
-            (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
-            (0, 3, "red"),                                                  (4, 3, "red"),
-                            (1, 4, "red"),                  (3, 4, "red"),
+                            (1, 0, "red"),
+            (0, 1, "red"),                 (2, 1, "red"),
+                            (1, 2, "red"),
         ],
         "pre_placed": [
-            # Row 0 — all blue border
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            # Row 1 — blue ends, red at heart-shoulders, yellow filler
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            # Row 2 — red at sides + middle, yellow between
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            # Row 3 — red at sides, yellow in middle
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            # Row 4 — blue ends, red taper, yellow filler
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pool": [],
-        # Red is the target to PRESERVE — X-mode pinches on red are
-        # no-ops. Stops a misfired pinch from corrupting the goal state.
         "delete_protect": "red",
     },
-    # Task 5 — Undo: restore everything that was deleted.
-    # Same 5×5 board as Task 4, but the non-red bricks are auto-deleted at
-    # load time (with one history snapshot pushed per deletion). The user
-    # restores them one Z-mode pinch at a time, until the full board is
-    # back. The layout lists ALL 25 positions, so completion requires
-    # every snapshot to be popped.
+    # Practice 5 — Undo (mini of Task 5): same 3x3 plus, but the 5
+    # non-reds are auto-deleted at load with one history snapshot per
+    # deletion. User restores them with 5 Z-mode pinches.
     {
-        "name": "Undo: restore blocks",
+        "name": "Practice 5 - Undo restore",
         "file": "5_undo.png",
-        "cols": 5, "rows": 5,
+        "cols": 3, "rows": 3,
         "layout": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),  (1,0,"red"),    (2,0,"blue"),
+            (0,1,"red"),   (1,1,"yellow"), (2,1,"red"),
+            (0,2,"blue"),  (1,2,"red"),    (2,2,"blue"),
         ],
         "pool": [],
-        # At load, pre-delete every brick whose kind != "red", recording
-        # one undo step per deletion. The user reverses those deletions
-        # with Z-mode pinches until the board is whole again.
         "auto_delete_preserve": "red",
-        # Red bricks are immune to X-mode here too: this task is about
-        # restoring with undo, not re-deleting reds the auto-load left
-        # alone. A stray pinch on a red shouldn't derail it.
         "delete_protect": "red",
     },
 ]
@@ -839,18 +789,19 @@ class App:
     # ── task management ──────────────────────
 
     def _load_tasks(self):
-        """Load reference images for each TASK_DEFS entry."""
-        here = os.path.dirname(os.path.abspath(__file__))
-        tasks_dir = os.path.join(here, "tasks_ver2")
+        """Load reference images for each TASK_DEFS entry.
+
+        Practice build: every reference image carries the instruction
+        text on it ("Copy each block 6 times", "Remove all other
+        blocks", ...), which gives away which gesture the task tests.
+        We deliberately skip loading the images here so the reference
+        panel falls back to a wordless mini-layout — the participant
+        has to read the goal off the grid + drop-zone state alone.
+        """
         result = []
         for d in TASK_DEFS:
             t = dict(d)
-            p = os.path.join(tasks_dir, d["file"])
-            t["image"] = cv2.imread(p) if os.path.exists(p) else None
-            if t["image"] is None:
-                print(f"[info] Task image missing: {p}")
-            else:
-                print(f"Task image loaded: {p}")
+            t["image"] = None
             result.append(t)
         return result
 
@@ -1159,7 +1110,11 @@ class App:
         self._correct_t = 0.0
         self._load_task()
         idx = self.task_idx % len(self.tasks)
-        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!")
+        # Practice build: deliberately suppress the task name in the
+        # user-facing notification — the participant should infer which
+        # gesture to use from the reference image alone, not from a
+        # "Copy" / "Find" label.
+        self._notify(f"Task {idx + 1}!")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1168,7 +1123,7 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}")
+        self._notify(f"Jumped to Task {idx + 1}")
 
     # ── helpers ──────────────────────────────
 
@@ -1247,7 +1202,7 @@ class App:
                 return "(Reference — can't delete)"
             t = self.tasks[self.task_idx % len(self.tasks)]
             if t.get("delete_protect") == self.hovered.kind:
-                return f"(You can't delete this {self.hovered.kind} block.)"
+                return f"(You can't delete this {self.hovered.kind})"
             return f"Delete '{self.hovered.label}'"
         if self.mode == "Z" and self._history:
             return f"Undo (stack: {len(self._history)})"
@@ -1633,7 +1588,8 @@ class App:
         layout = t["layout"]
 
         # subtitle (task name)
-        title = f"Task {idx + 1}: {t['name']}"
+        # Practice build: title shows only the number (no Copy/Find/etc.)
+        title = f"Task {idx + 1}"
         self._put(frame, title, RF_X + 12, RF_Y + 52, 0.46, (80, 80, 75))
 
         # task image (the visual goal)
