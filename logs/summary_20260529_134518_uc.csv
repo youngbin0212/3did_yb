@@ -1,0 +1,8 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,10 blocks in each box,0.082,4.487,4.405,40,0,0,0,0,0,0,0,0,False,0.0
+3,Keep only red,4.487,12.532,8.045,10,0,0,0,0,0,0,0,0,False,0.0
+2,Match the blocks,12.533,14.035,1.502,8,0,0,0,0,0,0,0,0,False,0.0
+3,Keep only red,14.035,15.265,1.23,10,0,0,0,0,0,0,0,0,False,0.0
+2,Match the blocks,15.266,20.695,5.429,8,0,0,0,0,0,0,0,0,False,0.0
+3,Keep only red,20.695,45.488,24.793,10,0,0,0,0,0,0,0,0,False,0.0
+4,Put back all the blocks that you have removed,45.489,113.622,68.133,35,0,0,0,0,0,0,0,0,False,0.0

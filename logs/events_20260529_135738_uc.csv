@@ -1,0 +1,16 @@
+t,task_idx,task_name,event_type,total_slots,completed,duration_s,misplacements,correct_placements,error_rate,from_mode,to_mode,commit_latency_s,action,response_latency_s,subaction,target,kind,pasted,snapped,expected,actual,source,correct
+0.085,0,10 blocks in each box,task_start,40,,,,,,,,,,,,,,,,,,,
+10.515,0,10 blocks in each box,task_end,,False,10.43,0,0,0.0,,,,,,,,,,,,,,
+10.515,1,Fill each row,task_start,24,,,,,,,,,,,,,,,,,,,
+16.515,1,Fill each row,mode_change,,,,,,,open,C,1.176,,,,,,,,,,,
+17.682,1,Fill each row,action,,,,,,,,,,C,0.0,copy,A,pink,,,,,,
+21.716,1,Fill each row,action,,,,,,,,,,C,0.0,paste,,pink,A',False,,,,
+23.382,1,Fill each row,placement,,,,,,,,,,,,,,,,,pink,pink,paste,True
+23.382,1,Fill each row,action,,,,,,,,,,C,0.0,paste,,pink,A',True,,,,
+24.924,1,Fill each row,placement,,,,,,,,,,,,,,,,,pink,pink,paste,True
+24.924,1,Fill each row,action,,,,,,,,,,C,0.0,paste,,pink,A',True,,,,
+26.351,1,Fill each row,placement,,,,,,,,,,,,,,,,,pink,pink,paste,True
+26.351,1,Fill each row,action,,,,,,,,,,C,0.0,paste,,pink,A',True,,,,
+27.756,1,Fill each row,placement,,,,,,,,,,,,,,,,,pink,pink,paste,True
+27.756,1,Fill each row,action,,,,,,,,,,C,0.0,paste,,pink,A',True,,,,
+29.576,1,Fill each row,task_end,,False,19.061,0,4,0.0,,,,,,,,,,,,,,

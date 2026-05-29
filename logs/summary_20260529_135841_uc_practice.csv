@@ -1,0 +1,6 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Practice 1 - Copy 2x2,0.028,20.736,20.708,4,3,1,1,5,0,0,0,0,False,0.75
+1,Practice 2 - Copy 2 times,20.736,21.611,0.875,4,0,0,0,0,0,0,0,0,False,0.0
+2,Practice 3 - Find shades,21.612,31.466,9.854,4,0,0,1,1,2,0,0,0,False,0.0
+2,Practice 3 - Find shades,31.466,32.612,1.146,4,0,0,0,0,0,0,0,0,False,0.0
+3,Practice 4 - Delete non-red,32.613,35.908,3.295,4,0,0,0,0,0,0,0,0,False,0.0

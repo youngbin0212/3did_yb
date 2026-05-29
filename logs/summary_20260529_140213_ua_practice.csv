@@ -1,0 +1,4 @@
+task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
+0,Practice 1 - Place 2x2,0.03,20.521,20.491,4,0,0,0,0,0,0,0,0,False,0.0
+3,Practice 4 - Remove non-red,20.522,31.736,11.214,4,0,0,0,0,0,0,0,0,False,0.0
+4,Practice 5 - Restore drag,31.736,38.79,7.054,9,0,1,0,0,0,0,0,0,False,0.0

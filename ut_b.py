@@ -230,7 +230,7 @@ TASK_DEFS = [
     # → 40 paste actions. Drag is also technically possible but only
     # the 4 seeds exist, so finishing still requires Ring+Pinky.
     {
-        "name": "Copy: 10 per box",
+        "name": "10 blocks in each box",
         "file": "1_copy1.png",
         "cols": 10, "rows": 4,
         "layout": [
@@ -245,7 +245,7 @@ TASK_DEFS = [
     # 4 source bricks live in the task workspace (the pool); for each
     # one the user copies it and pastes 6 times into the matching row.
     {
-        "name": "Copy: 6 times each",
+        "name": "Fill each row",
         "file": "2_copy2.png",
         "cols": 6, "rows": 4,
         "layout": [
@@ -264,7 +264,7 @@ TASK_DEFS = [
     # reference of the same shade. con_b has no Find pose, so the
     # user matches purely by visual comparison.
     {
-        "name": "Find: match shades",
+        "name": "Match the blocks",
         "file": "3_find.png",
         "cols": 8, "rows": 2,
         "pre_placed": [
@@ -284,50 +284,81 @@ TASK_DEFS = [
     # delete every non-red brick. delete_protect blocks accidental
     # Fist firings on red.
     {
-        "name": "Delete: keep only red",
+        "name": "Keep only red",
         "file": "4_delete.png",
-        "cols": 5, "rows": 5,
+        "cols": 5, "rows": 7,
         "layout": [
+            # Red heart outline inside a 5x7 grid (the left/right blue
+            # borders from tasks_ver2/4_delete.png have been trimmed so
+            # the bricks render bigger). Blue runs along the top/bottom
+            # rows and yellow fills the gaps inside the heart envelope.
+            #   . . . . .
+            #   . R . R .
+            #   R . R . R
+            #   R . . . R
+            #   . R . R .
+            #   . . R . .
+            #   . . . . .
                             (1, 1, "red"),                  (3, 1, "red"),
             (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
             (0, 3, "red"),                                                  (4, 3, "red"),
                             (1, 4, "red"),                  (3, 4, "red"),
+                                            (2, 5, "red"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            # Full 5x7 starting board. 10 blue (top/bottom rows) + 15
+            # yellow filler + 10 red heart-outline bricks. The user
+            # Fist-deletes the 25 non-red bricks until only the heart
+            # remains.
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pool": [],
         "delete_protect": "red",
+        # Use the full Action Workspace height (not just the top 2/3)
+        # so the 7 rows can spread out and bricks render larger.
+        "full_height_workspace": True,
     },
     # Task 5 — Undo: restore everything that was deleted.
     # Same 5x5 board as Task 4, but the non-red bricks are auto-
     # deleted at load time with one history snapshot pushed per
     # deletion. User restores them with Open-pose undo pinches.
     {
-        "name": "Undo: restore blocks",
+        "name": "Put back all the blocks that you have removed",
+        "name_lines": ["Put back all the blocks",
+                       "that you have removed"],
         "file": "5_undo.png",
-        "cols": 5, "rows": 5,
+        "cols": 5, "rows": 7,
+        # Same 5x7 board as Task 4. The layout lists ALL 35 positions
+        # so completion requires every auto-deleted non-red brick to be
+        # restored via Open-pose undo.
         "layout": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pool": [],
         "auto_delete_preserve": "red",
         "delete_protect": "red",
+        "full_height_workspace": True,
     },
 ]
 
@@ -777,6 +808,12 @@ class App:
         "X":    ( 40,  40, 210),
         "Z":    ( 95, 190,  75),
         "open": (145, 145, 145),
+        # Symbolic colours kept identical across ut_a / ut_b / ut_c so
+        # the same gesture-family always reads the same hue. These two
+        # extras only appear in the feedback-bar wash, not as modes:
+        "drag": (185, 165,  90),   # successful drag — soft teal
+        "warn": ( 60, 140, 225),   # blocked / can't-do — amber
+        "task": (180, 180, 120),   # task transition / progression
     }
     MODE_DESC = {
         "C": "Copy / Paste",
@@ -808,6 +845,9 @@ class App:
         self._prev_pin      = False
         self._notif         = ""
         self._notif_t       = 0.0
+        # Symbolic kind of the most recent notification — drives the
+        # feedback-bar wash colour. See MODE_BGR for the palette.
+        self._notif_kind: Optional[str] = None
         self._raw_frame     = None
         self._next_id       = 0
         self._correct_t     = 0.0
@@ -879,9 +919,18 @@ class App:
         """Compute slot/brick dimensions for the current task."""
         t = self.tasks[self.task_idx % len(self.tasks)]
         cols, rows = t["cols"], t["rows"]
-        # Drop zone is restricted to the top 2/3 of the Action Workspace so
-        # it doesn't crowd the bottom of the screen. Bricks scale down to fit.
-        aw_top_h = AW_H * 2 // 3
+        # Drop zone defaults to the top 2/3 of the Action Workspace so
+        # it doesn't crowd the bottom of the screen. Bricks scale down
+        # to fit. Tall layouts (Task 4/5, 5x7) opt in via
+        # `full_height_workspace` so they can spread vertically and
+        # render bigger bricks instead of compressing into a third.
+        if t.get("full_height_workspace"):
+            # Use ~5/6 of the height — bigger than the default 2/3 so
+            # tall layouts (5x7) breathe, but still keep some bottom
+            # whitespace under the drop zone.
+            aw_top_h = AW_H * 5 // 6
+        else:
+            aw_top_h = AW_H * 2 // 3
         avail_w = AW_W - 16
         avail_h = aw_top_h - 60
         slot_pad = SLOT_PAD_DEFAULT
@@ -1177,7 +1226,7 @@ class App:
         self._correct_t = 0.0
         self._load_task()
         idx = self.task_idx % len(self.tasks)
-        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!")
+        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!", kind="task")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1186,7 +1235,8 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}")
+        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}",
+                     kind="task")
 
     # ── helpers ──────────────────────────────
 
@@ -1247,9 +1297,17 @@ class App:
                 return s
         return None
 
-    def _notify(self, msg: str):
-        self._notif   = msg
-        self._notif_t = time.time()
+    def _notify(self, msg: str, kind: Optional[str] = None):
+        """Show a transient message in the feedback bar.
+
+        `kind` controls the bar's background-wash colour via MODE_BGR:
+        "C" / "F" / "X" / "Z" for the four action families, "drag" for
+        a successful drag, "warn" for blocked / can't-do messages,
+        "task" for task-progression notices. None → no wash (neutral
+        dark bar, used for generic chatter)."""
+        self._notif      = msg
+        self._notif_t    = time.time()
+        self._notif_kind = kind
 
     # ── microGEXT pose firing (baseline 2) ───
     def _fire_pose(self, pose: str, latency: float):
@@ -1266,18 +1324,21 @@ class App:
             # Copy the hovered brick (pool or slot).
             if obj is not None and obj.locked:
                 # Locked references cannot be copied.
-                self._notify("Reference — can't copy")
+                self._notify("Reference; can't copy", kind="warn")
                 self.metrics.log_action("C", latency,
                                         blocked=True,
                                         target=obj.label, kind=obj.kind)
             elif obj is not None:
                 self.clipboard = copy.copy(obj)
-                self._notify(f"Copied: {obj.label}")
+                self._notify(f"Copied: {obj.label}", kind="C")
                 self.metrics.log_action("C", latency,
                                         subaction="copy",
                                         target=obj.label, kind=obj.kind)
             else:
-                self._notify("Hover a brick to Copy")
+                # No hovered brick — pose still logged for telemetry but
+                # the notification is suppressed. Fist / Ring poses are
+                # easy to fire unintentionally, and a constant "hover a
+                # brick" stream is more annoying than helpful.
                 self.metrics.log_action("C", latency,
                                         subaction="no_target")
             return
@@ -1285,12 +1346,10 @@ class App:
         if pose == "Pinky":
             # Paste at the pointer, snapping to a slot if close enough.
             if self.clipboard is None:
-                self._notify("Clipboard empty")
                 self.metrics.log_action("C", latency,
                                         subaction="empty_clipboard")
                 return
             if self.r_ptr is None:
-                self._notify("Move pointer into view to Paste")
                 self.metrics.log_action("C", latency,
                                         subaction="no_pointer")
                 return
@@ -1339,7 +1398,8 @@ class App:
                 self.metrics.end_task(completed=True)
 
             self._notify(f"Pasted: {new.label}"
-                         + (" -> slot" if snap is not None else ""))
+                         + (" -> slot" if snap is not None else ""),
+                         kind="C")
             return
 
         if pose == "Fist":
@@ -1351,12 +1411,13 @@ class App:
                 t = self.tasks[self.task_idx % len(self.tasks)]
                 protect = t.get("delete_protect")
                 if obj.locked:
-                    self._notify("Reference — can't delete")
+                    self._notify("Reference — can't delete", kind="warn")
                     self.metrics.log_action("X", latency,
                                             blocked=True,
                                             target=obj.label, kind=obj.kind)
                 elif protect is not None and obj.kind == protect:
-                    self._notify(f"{obj.kind.capitalize()} is protected")
+                    self._notify(f"{obj.kind.capitalize()} is protected",
+                                 kind="warn")
                     self.metrics.log_action("X", latency,
                                             blocked=True,
                                             target=obj.label, kind=obj.kind)
@@ -1365,7 +1426,7 @@ class App:
                     obj.alive = False
                     obj.slot  = None
                     self.highlighted.discard(obj.id)
-                    self._notify(f"Deleted: {obj.label}")
+                    self._notify(f"Deleted: {obj.label}", kind="X")
                     self.metrics.log_action("X", latency,
                                             target=obj.label, kind=obj.kind)
                     # The Delete task completes when every non-target
@@ -1374,7 +1435,8 @@ class App:
                         self._correct_t = time.time()
                         self.metrics.end_task(completed=True)
             else:
-                self._notify("Hover a brick to Delete")
+                # No hovered brick — silently log and bail. See the
+                # Ring branch above for why these are suppressed.
                 self.metrics.log_action("X", latency, subaction="no_target")
             return
 
@@ -1382,7 +1444,8 @@ class App:
             # Undo the most recent destructive action.
             if self._history:
                 self._restore_snapshot(self._history.pop())
-                self._notify(f"Undo (steps left: {len(self._history)})")
+                self._notify(f"Undo (steps left: {len(self._history)})",
+                             kind="Z")
                 self.metrics.log_action("Z", latency,
                                         remaining=len(self._history))
                 # Undo task completes once the last snapshot has been
@@ -1391,7 +1454,6 @@ class App:
                     self._correct_t = time.time()
                     self.metrics.end_task(completed=True)
             else:
-                self._notify("Nothing to undo")
                 self.metrics.log_action("Z", latency, subaction="empty_history")
             return
 
@@ -1760,12 +1822,21 @@ class App:
         t = self.tasks[idx]
         layout = t["layout"]
 
-        # subtitle (task name)
-        title = f"Task {idx + 1}: {t['name']}"
-        self._put(frame, title, RF_X + 12, RF_Y + 52, 0.46, (80, 80, 75))
+        # Subtitle: "Task N" on line 1, then the task name (possibly
+        # wrapped via the optional `name_lines` override) on the lines
+        # below. Long names like Task 5 would otherwise spill past the
+        # Reference column and overlap the Self View / workspaces.
+        self._put(frame, f"Task {idx + 1}",
+                  RF_X + 12, RF_Y + 48, 0.46, (80, 80, 75))
+        name_lines = t.get("name_lines") or [t['name']]
+        for i, line in enumerate(name_lines):
+            self._put(frame, line,
+                      RF_X + 12, RF_Y + 70 + i * 20,
+                      0.44, (95, 95, 90))
 
-        # task image (the visual goal)
-        img_top    = RF_Y + 60
+        # task image (the visual goal) — top edge slides down with the
+        # number of subtitle lines so it never overlaps the wrapped name.
+        img_top    = RF_Y + 80 + max(0, len(name_lines) - 1) * 20
         img_bottom = RF_Y + RF_H - 30
         img = t.get("image")
         if img is not None:
@@ -1817,34 +1888,59 @@ class App:
                       (160, 160, 155), 1)
 
     def _draw_feedback_bar(self, frame):
+        # Default dark background — used when nothing demands attention.
         self._fill(frame, SF_X, SF_Y, SF_X + SF_W, SF_Y + SF_H, FB_BG, 1.0)
+
+        notif_active = (self._notif
+                        and time.time() - self._notif_t < self.NOTIF_S)
+
+        # Right-half wash whenever the bar has something to announce.
+        # The colour comes from MODE_BGR so the same action family
+        # always reads the same hue across ut_a / ut_b / ut_c.
+        right_x = SF_X + SF_W * 9 // 20      # ~45% across the bar
+        wash = None
+        if notif_active and self._notif_kind is not None:
+            wash = self.MODE_BGR.get(self._notif_kind)
+        elif self.mode != "open":
+            wash = self.MODE_BGR.get(self.mode, None)
+        if wash is not None:
+            ov = frame.copy()
+            cv2.rectangle(ov, (right_x, SF_Y),
+                          (SF_X + SF_W, SF_Y + SF_H), wash, -1)
+            cv2.addWeighted(ov, 0.45, frame, 0.55, 0, frame)
+            cv2.line(frame, (right_x, SF_Y + 4),
+                     (right_x, SF_Y + SF_H - 4), (200, 210, 220), 1)
+
         cv2.rectangle(frame, (SF_X, SF_Y),
                       (SF_X + SF_W, SF_Y + SF_H), FB_BD, 1)
 
+        # Drop-shadow draw keeps the coloured text legible on either
+        # the dark or the washed half of the bar.
+        def put_shadowed(text, x, y, scale, color, thick=2):
+            cv2.putText(frame, text, (x + 1, y + 1),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        (0, 0, 0), thick + 1, cv2.LINE_AA)
+            cv2.putText(frame, text, (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        color, thick, cv2.LINE_AA)
+
+        # LEFT: left-hand status (always shown).
         if self.mode == "open":
             primary = "[Left Hand] open palm  |  Drag mode"
-            mc      = (190, 200, 210)
+            mc      = (220, 230, 240)
         else:
             primary = (f"[Left Hand] {self.mode}  |  "
                        f"{self.MODE_DESC.get(self.mode, '')}  detected")
-            mc = self.MODE_BGR.get(self.mode, (190, 200, 210))
+            mc = self.MODE_BGR.get(self.mode, (220, 230, 240))
+        put_shadowed(primary, SF_X + 16, SF_Y + 30, 0.62, mc, 2)
 
-        # Tells the user what their next pinch will actually do — crucial
-        # in C mode where pinch can mean either copy or paste depending
-        # on whether the cursor is over a brick.
-        hint = self._action_hint()
-        if hint:
-            primary += f"   ->  {hint}"
-
-        self._put(frame, primary, SF_X + 16, SF_Y + 28, 0.56, mc, 1)
-
-        # transient notification on the right
-        if self._notif and time.time() - self._notif_t < self.NOTIF_S:
+        # RIGHT: transient notification (sits over the wash).
+        if notif_active:
             nt = f">  {self._notif}"
             (nw, _), _ = cv2.getTextSize(nt, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            self._put(frame, nt, SF_X + SF_W - nw - 16, SF_Y + 28,
-                      0.50, (220, 225, 200))
+                                          0.62, 2)
+            put_shadowed(nt, SF_X + SF_W - nw - 16, SF_Y + 30, 0.62,
+                         (235, 255, 220), 2)
 
     def _draw_instruction_panel(self, frame):
         # Baseline 2 (updated): hidden by default to match con_c's cheat-

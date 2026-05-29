@@ -702,6 +702,9 @@ class App:
         "X":    ( 40,  40, 210),
         "Z":    ( 95, 190,  75),
         "open": (145, 145, 145),
+        "drag": (185, 165,  90),
+        "warn": ( 60, 140, 225),
+        "task": (180, 180, 120),
     }
     MODE_DESC = {
         "C": "Copy / Paste",
@@ -733,6 +736,7 @@ class App:
         self._prev_pin      = False
         self._notif         = ""
         self._notif_t       = 0.0
+        self._notif_kind: Optional[str] = None
         self._raw_frame     = None
         self._next_id       = 0
         self._correct_t     = 0.0
@@ -811,7 +815,10 @@ class App:
         cols, rows = t["cols"], t["rows"]
         # Drop zone is restricted to the top 2/3 of the Action Workspace so
         # it doesn't crowd the bottom of the screen. Bricks scale down to fit.
-        aw_top_h = AW_H * 2 // 3
+        if t.get("full_height_workspace"):
+            aw_top_h = AW_H * 5 // 6
+        else:
+            aw_top_h = AW_H * 2 // 3
         avail_w = AW_W - 16
         avail_h = aw_top_h - 60
         slot_pad = SLOT_PAD_DEFAULT
@@ -1114,7 +1121,7 @@ class App:
         # user-facing notification — the participant should infer which
         # gesture to use from the reference image alone, not from a
         # "Copy" / "Find" label.
-        self._notify(f"Task {idx + 1}!")
+        self._notify(f"Task {idx + 1}!", kind="task")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1123,7 +1130,7 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}")
+        self._notify(f"Jumped to Task {idx + 1}", kind="task")
 
     # ── helpers ──────────────────────────────
 
@@ -1175,9 +1182,10 @@ class App:
                 return s
         return None
 
-    def _notify(self, msg: str):
-        self._notif   = msg
-        self._notif_t = time.time()
+    def _notify(self, msg: str, kind: Optional[str] = None):
+        self._notif      = msg
+        self._notif_t    = time.time()
+        self._notif_kind = kind
 
     def _action_hint(self) -> str:
         """One-line preview of what the next pinch will do, given the
@@ -1214,17 +1222,29 @@ class App:
         obj = self.hovered
         latency = ((time.time() - self._pinch_start_t)
                    if self._pinch_start_t else 0.0)
+
+        # All pinch-fired actions are silently ignored when the cursor
+        # is inside the Instruction Panel — see the matching guard in
+        # ut_c.py for the rationale.
+        if (self.r_ptr is not None
+                and IP_X <= self.r_ptr[0] <= IP_X + IP_W
+                and IP_Y <= self.r_ptr[1] <= IP_Y + IP_H):
+            self.metrics.log_action(self.mode, latency,
+                                    blocked=True,
+                                    subaction="over_panel")
+            return
+
         if self.mode == "C":
             paste_over = self._is_paste_target(obj)
             if obj is not None and obj.locked:
                 # Locked references cannot be copied OR overwritten.
-                self._notify("Reference — can't copy")
+                self._notify("Reference — can't copy", kind="warn")
                 self.metrics.log_action("C", latency,
                                         blocked=True,
                                         target=obj.label, kind=obj.kind)
             elif obj and not paste_over:
                 self.clipboard = copy.copy(obj)
-                self._notify(f"Copied: {obj.label}")
+                self._notify(f"Copied: {obj.label}", kind="C")
                 self.metrics.log_action("C", latency,
                                         subaction="copy",
                                         target=obj.label, kind=obj.kind)
@@ -1283,15 +1303,17 @@ class App:
                     self.metrics.end_task(completed=True)
 
                 self._notify(f"Pasted: {new.label}"
-                             + (" -> slot" if snap is not None else ""))
+                             + (" -> slot" if snap is not None else ""),
+                             kind="C")
             else:
-                self._notify("Clipboard empty")
+                # Silently log clipboard-empty paste attempts.
                 self.metrics.log_action("C", latency, subaction="empty_clipboard")
         elif self.mode == "F":
             if obj:
                 self.highlighted = {s.id for s in self.shapes
                                     if s.alive and s.kind == obj.kind}
-                self._notify(f"{obj.kind}: {len(self.highlighted)} highlighted")
+                self._notify(f"{obj.kind}: {len(self.highlighted)} highlighted",
+                             kind="F")
                 self.metrics.log_action("F", latency,
                                         kind=obj.kind,
                                         count=len(self.highlighted))
@@ -1304,12 +1326,13 @@ class App:
                 t = self.tasks[self.task_idx % len(self.tasks)]
                 protect = t.get("delete_protect")
                 if obj.locked:
-                    self._notify("Reference — can't delete")
+                    self._notify("Reference — can't delete", kind="warn")
                     self.metrics.log_action("X", latency,
                                             blocked=True,
                                             target=obj.label, kind=obj.kind)
                 elif protect is not None and obj.kind == protect:
-                    self._notify(f"{obj.kind.capitalize()} is protected")
+                    self._notify(f"{obj.kind.capitalize()} is protected",
+                                 kind="warn")
                     self.metrics.log_action("X", latency,
                                             blocked=True,
                                             target=obj.label, kind=obj.kind)
@@ -1318,7 +1341,7 @@ class App:
                     obj.alive = False
                     obj.slot  = None
                     self.highlighted.discard(obj.id)
-                    self._notify(f"Deleted: {obj.label}")
+                    self._notify(f"Deleted: {obj.label}", kind="X")
                     self.metrics.log_action("X", latency,
                                             target=obj.label, kind=obj.kind)
                     # The Delete task completes when every non-target brick
@@ -1329,7 +1352,8 @@ class App:
         elif self.mode == "Z":
             if self._history:
                 self._restore_snapshot(self._history.pop())
-                self._notify(f"Undo (steps left: {len(self._history)})")
+                self._notify(f"Undo (steps left: {len(self._history)})",
+                             kind="Z")
                 self.metrics.log_action("Z", latency,
                                         remaining=len(self._history))
                 # Undo task completes once the last snapshot has been
@@ -1646,33 +1670,52 @@ class App:
 
     def _draw_feedback_bar(self, frame):
         self._fill(frame, SF_X, SF_Y, SF_X + SF_W, SF_Y + SF_H, FB_BG, 1.0)
+
+        notif_active = (self._notif
+                        and time.time() - self._notif_t < self.NOTIF_S)
+
+        # Right-half wash only when an action actually fires. Standing
+        # mode (e.g. C-mode armed but no pinch yet) is intentionally
+        # NOT washed — the bar should react to events, not to the user
+        # just arming a gesture.
+        right_x = SF_X + SF_W * 9 // 20
+        wash = None
+        if notif_active and self._notif_kind is not None:
+            wash = self.MODE_BGR.get(self._notif_kind)
+        if wash is not None:
+            ov = frame.copy()
+            cv2.rectangle(ov, (right_x, SF_Y),
+                          (SF_X + SF_W, SF_Y + SF_H), wash, -1)
+            cv2.addWeighted(ov, 0.45, frame, 0.55, 0, frame)
+            cv2.line(frame, (right_x, SF_Y + 4),
+                     (right_x, SF_Y + SF_H - 4), (200, 210, 220), 1)
+
         cv2.rectangle(frame, (SF_X, SF_Y),
                       (SF_X + SF_W, SF_Y + SF_H), FB_BD, 1)
 
+        def put_shadowed(text, x, y, scale, color, thick=2):
+            cv2.putText(frame, text, (x + 1, y + 1),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        (0, 0, 0), thick + 1, cv2.LINE_AA)
+            cv2.putText(frame, text, (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        color, thick, cv2.LINE_AA)
+
         if self.mode == "open":
             primary = "[Left Hand] open palm  |  Drag mode"
-            mc      = (190, 200, 210)
+            mc      = (220, 230, 240)
         else:
             primary = (f"[Left Hand] {self.mode}  |  "
                        f"{self.MODE_DESC.get(self.mode, '')}  detected")
-            mc = self.MODE_BGR.get(self.mode, (190, 200, 210))
+            mc = self.MODE_BGR.get(self.mode, (220, 230, 240))
+        put_shadowed(primary, SF_X + 16, SF_Y + 30, 0.62, mc, 2)
 
-        # Tells the user what their next pinch will actually do — crucial
-        # in C mode where pinch can mean either copy or paste depending
-        # on whether the cursor is over a brick.
-        hint = self._action_hint()
-        if hint:
-            primary += f"   ->  {hint}"
-
-        self._put(frame, primary, SF_X + 16, SF_Y + 28, 0.56, mc, 1)
-
-        # transient notification on the right
-        if self._notif and time.time() - self._notif_t < self.NOTIF_S:
+        if notif_active:
             nt = f">  {self._notif}"
             (nw, _), _ = cv2.getTextSize(nt, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            self._put(frame, nt, SF_X + SF_W - nw - 16, SF_Y + 28,
-                      0.50, (220, 225, 200))
+                                          0.62, 2)
+            put_shadowed(nt, SF_X + SF_W - nw - 16, SF_Y + 30, 0.62,
+                         (235, 255, 220), 2)
 
     def _draw_instruction_panel(self, frame):
         self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Gesture Shortcuts")

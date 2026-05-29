@@ -1,0 +1,92 @@
+t,task_idx,task_name,event_type,total_slots,completed,duration_s,misplacements,correct_placements,error_rate,action,response_latency_s,target,kind,snapped,count,expected,actual,source,correct,from_mode,to_mode,commit_latency_s,blocked,subaction,remaining
+0.086,0,10 blocks in each box,task_start,40,,,,,,,,,,,,,,,,,,,,,
+7.324,0,10 blocks in each box,task_end,,False,7.238,0,0,0.0,,,,,,,,,,,,,,,,
+7.324,3,Keep only red,task_start,10,,,,,,,,,,,,,,,,,,,,,
+20.131,3,Keep only red,action,,,,,,,drag,0.161,a,yellow,False,,,,,,,,,,,
+27.105,3,Keep only red,panel_open,,,,,,,,,,,,1,,,,,,,,,,
+40.158,3,Keep only red,panel_open,,,,,,,,,,,,2,,,,,,,,,,
+43.688,3,Keep only red,action,,,,,,,drag,1.085,e,blue,False,,,,,,,,,,,
+45.521,3,Keep only red,action,,,,,,,drag,0.757,d,blue,False,,,,,,,,,,,
+48.258,3,Keep only red,action,,,,,,,drag,1.061,c,blue,False,,,,,,,,,,,
+50.743,3,Keep only red,placement,,,,,,,,,,,,,red,red,drag,True,,,,,,
+50.743,3,Keep only red,action,,,,,,,drag,0.78,m,red,True,,,,,,,,,,,
+52.28,3,Keep only red,action,,,,,,,drag,0.757,h,yellow,False,,,,,,,,,,,
+55.339,3,Keep only red,action,,,,,,,drag,0.728,n,yellow,False,,,,,,,,,,,
+56.831,3,Keep only red,placement,,,,,,,,,,,,,red,red,drag,True,,,,,,
+56.831,3,Keep only red,action,,,,,,,drag,0.744,i,red,True,,,,,,,,,,,
+59.031,3,Keep only red,action,,,,,,,drag,0.891,j,yellow,False,,,,,,,,,,,
+64.523,3,Keep only red,panel_open,,,,,,,,,,,,3,,,,,,,,,,
+72.07,3,Keep only red,mode_change,,,,,,,,,,,,,,,,,open,X,1.286,,,
+73.371,3,Keep only red,action,,,,,,,X,0.0,e,blue,,,,,,,,,,,,
+76.458,3,Keep only red,action,,,,,,,X,0.0,j,yellow,,,,,,,,,,,,
+77.775,3,Keep only red,action,,,,,,,X,0.0,o,red,,,,,,,,,,True,,
+78.932,3,Keep only red,action,,,,,,,X,0.0,n,yellow,,,,,,,,,,,,
+80.963,3,Keep only red,action,,,,,,,X,0.0,h,red,,,,,,,,,,True,,
+81.839,3,Keep only red,action,,,,,,,X,0.0,h,red,,,,,,,,,,True,,
+85.114,3,Keep only red,action,,,,,,,X,0.0,h,red,,,,,,,,,,True,,
+86.989,3,Keep only red,action,,,,,,,X,0.0,h,red,,,,,,,,,,True,,
+88.827,3,Keep only red,action,,,,,,,X,0.0,c,yellow,,,,,,,,,,,,
+90.124,3,Keep only red,action,,,,,,,X,0.0,b,yellow,,,,,,,,,,,,
+91.674,3,Keep only red,action,,,,,,,X,0.0,m,red,,,,,,,,,,True,,
+92.525,3,Keep only red,action,,,,,,,X,0.0,m,red,,,,,,,,,,True,,
+94.208,3,Keep only red,action,,,,,,,X,0.0,h,yellow,,,,,,,,,,,,
+95.303,3,Keep only red,action,,,,,,,X,0.0,d,blue,,,,,,,,,,,,
+96.398,3,Keep only red,action,,,,,,,X,0.0,c,blue,,,,,,,,,,,,
+97.748,3,Keep only red,action,,,,,,,X,0.0,g,red,,,,,,,,,,True,,
+98.543,3,Keep only red,action,,,,,,,X,0.0,g,red,,,,,,,,,,True,,
+99.336,3,Keep only red,action,,,,,,,X,0.0,b,blue,,,,,,,,,,,,
+101.574,3,Keep only red,action,,,,,,,X,0.0,f,yellow,,,,,,,,,,,,
+102.38,3,Keep only red,action,,,,,,,X,0.0,a,blue,,,,,,,,,,,,
+105.347,3,Keep only red,action,,,,,,,X,0.0,l,yellow,,,,,,,,,,,,
+106.517,3,Keep only red,action,,,,,,,X,0.0,f,red,,,,,,,,,,True,,
+107.332,3,Keep only red,action,,,,,,,X,0.0,f,red,,,,,,,,,,True,,
+108.003,3,Keep only red,action,,,,,,,X,0.0,a,yellow,,,,,,,,,,,,
+116.029,3,Keep only red,action,,,,,,,X,0.0,g,yellow,,,,,,,,,,,,
+118.145,3,Keep only red,action,,,,,,,X,0.0,n,yellow,,,,,,,,,,,,
+119.342,3,Keep only red,action,,,,,,,X,0.0,i,yellow,,,,,,,,,,,,
+120.672,3,Keep only red,action,,,,,,,X,0.0,b,blue,,,,,,,,,,,,
+121.615,3,Keep only red,action,,,,,,,X,0.0,m,yellow,,,,,,,,,,,,
+123.023,3,Keep only red,action,,,,,,,X,0.0,c,blue,,,,,,,,,,,,
+124.224,3,Keep only red,action,,,,,,,X,0.0,a,blue,,,,,,,,,,,,
+126.141,3,Keep only red,action,,,,,,,X,0.0,l,red,,,,,,,,,,True,,
+126.873,3,Keep only red,action,,,,,,,X,0.0,k,yellow,,,,,,,,,,,,
+130.863,3,Keep only red,action,,,,,,,X,0.0,p,blue,,,,,,,,,,,,
+135.362,3,Keep only red,action,,,,,,,X,0.0,f,red,,,,,,,,,,True,,
+136.383,3,Keep only red,action,,,,,,,X,0.0,e,yellow,,,,,,,,,,,,
+137.874,3,Keep only red,action,,,,,,,X,0.0,j,yellow,,,,,,,,,,,,
+139.866,3,Keep only red,action,,,,,,,X,0.0,p,red,,,,,,,,,,True,,
+140.677,3,Keep only red,action,,,,,,,X,0.0,p,red,,,,,,,,,,True,,
+151.57,3,Keep only red,task_end,,False,144.246,0,2,0.0,,,,,,,,,,,,,,,,
+151.57,4,Put back all the blocks that you have removed,task_start,35,,,,,,,,,,,,,,,,,,,,,
+153.349,4,Put back all the blocks that you have removed,action,,,,,,,X,0.0,k,red,,,,,,,,,,True,,
+153.795,4,Put back all the blocks that you have removed,action,,,,,,,X,0.0,k,red,,,,,,,,,,True,,
+154.394,4,Put back all the blocks that you have removed,action,,,,,,,X,0.0,k,red,,,,,,,,,,True,,
+156.311,4,Put back all the blocks that you have removed,panel_open,,,,,,,,,,,,4,,,,,,,,,,
+156.311,4,Put back all the blocks that you have removed,action,,,,,,,X,0.0,,,,,,,,,,,,True,over_panel,
+162.013,4,Put back all the blocks that you have removed,mode_change,,,,,,,,,,,,,,,,,X,Z,1.293,,,
+163.424,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,24
+164.025,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,23
+164.626,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,22
+165.957,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,21
+166.4,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,20
+166.698,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,19
+167.147,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,18
+167.737,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,17
+168.479,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,16
+169.227,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,15
+169.524,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,14
+169.825,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,13
+170.274,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,12
+170.584,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,11
+171.036,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,10
+171.325,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,9
+171.775,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,8
+172.225,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,7
+172.524,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,6
+173.574,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,5
+174.038,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,4
+174.341,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,3
+174.79,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,2
+175.091,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,1
+175.387,4,Put back all the blocks that you have removed,action,,,,,,,Z,0.0,,,,,,,,,,,,,,0
+175.387,4,Put back all the blocks that you have removed,task_end,,True,23.817,0,0,0.0,,,,,,,,,,,,,,,,

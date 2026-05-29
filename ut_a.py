@@ -221,7 +221,7 @@ TASK_DEFS = [
     # finish purely by drag-and-drop. Same 2x2 quadrant layout as ut_c
     # so the goal image still matches.
     {
-        "name": "Place: 10 per box",
+        "name": "10 blocks in each box",
         "file": "1_copy1.png",
         "cols": 10, "rows": 4,
         "layout": [
@@ -237,7 +237,7 @@ TASK_DEFS = [
     # Task 2 — Drag-only Copy 2: place 6 per row.
     # Pool ships with 24 bricks (6 of each colour) for drag-only fill.
     {
-        "name": "Place: 6 per row",
+        "name": "Fill each row",
         "file": "2_copy2.png",
         "cols": 6, "rows": 4,
         "layout": [
@@ -255,7 +255,7 @@ TASK_DEFS = [
     # shuffled order so straight-down dragging won't work. con_a has
     # no F-pose, so the user matches purely by visual comparison.
     {
-        "name": "Find: match shades",
+        "name": "Match the blocks",
         "file": "3_find.png",
         "cols": 8, "rows": 2,
         "pre_placed": [
@@ -276,53 +276,67 @@ TASK_DEFS = [
     # out of their slots until only reds remain. _check_answer's
     # extras-in-non-layout-slots check completes the task.
     {
-        "name": "Remove non-red",
+        "name": "Keep only red",
         "file": "4_delete.png",
-        "cols": 5, "rows": 5,
+        "cols": 5, "rows": 7,
         "layout": [
+            # 10 red heart-outline positions inside a 5x7 grid (the
+            # left/right blue side borders have been trimmed).
                             (1, 1, "red"),                  (3, 1, "red"),
             (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
             (0, 3, "red"),                                                  (4, 3, "red"),
                             (1, 4, "red"),                  (3, 4, "red"),
+                                            (2, 5, "red"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            # 5x7 board: 10 blue (top/bottom rows) + 15 yellow + 10 red.
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pool": [],
         # Lock only the red bricks so their drag-pickup is rejected.
         "lock_kind": "red",
+        # Use the full Action Workspace height (not just the top 2/3)
+        # so the 7 rows can spread out and bricks render larger.
+        "full_height_workspace": True,
     },
     # Task 5 — Drag-only Undo: restore everything that was deleted.
-    # Auto-deletion at load kills every non-red brick (alive=False,
-    # slot=None), leaving the 9 reds — which are also locked. The
-    # pool ships with the matching non-red bricks (9 blues + 7
-    # yellows) so the user drags fresh pieces in to refill the empty
-    # slots.
+    # Same 5x7 board as Task 4. Auto-deletion at load kills the 25
+    # non-red bricks; the pool ships with matching replacements
+    # (10 blues + 15 yellows) so the user drags fresh pieces in.
     {
-        "name": "Restore: drag bricks back",
+        "name": "Put back all the blocks that you have removed",
+        "name_lines": ["Put back all the blocks",
+                       "that you have removed"],
         "file": "5_undo.png",
-        "cols": 5, "rows": 5,
+        "cols": 5, "rows": 7,
         "layout": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pre_placed": [
-            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
-            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
+            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
+            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
+            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
+            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
-        "pool": ["blue"] * 9 + ["yellow"] * 7,
+        "pool": ["blue"] * 10 + ["yellow"] * 15,
         "auto_delete_preserve": "red",
         "lock_kind": "red",
+        "full_height_workspace": True,
     },
 ]
 
@@ -726,6 +740,12 @@ class App:
         "X":    ( 40,  40, 210),
         "Z":    ( 95, 190,  75),
         "open": (145, 145, 145),
+        # Symbolic colours shared across ut_a / ut_b / ut_c so each
+        # action family always reads the same hue. Only "drag" / "warn"
+        # / "task" matter for ut_a (which has no C/F/X/Z modes):
+        "drag": (185, 165,  90),   # successful drag — soft teal
+        "warn": ( 60, 140, 225),   # blocked / can't-do — amber
+        "task": (180, 180, 120),   # task transition / progression
     }
     MODE_DESC = {
         "C": "Copy / Paste",
@@ -757,6 +777,9 @@ class App:
         self._prev_pin      = False
         self._notif         = ""
         self._notif_t       = 0.0
+        # Symbolic kind of the most recent notification — drives the
+        # feedback-bar wash colour. See MODE_BGR for the palette.
+        self._notif_kind: Optional[str] = None
         self._raw_frame     = None
         self._next_id       = 0
         self._correct_t     = 0.0
@@ -832,9 +855,17 @@ class App:
         """Compute slot/brick dimensions for the current task."""
         t = self.tasks[self.task_idx % len(self.tasks)]
         cols, rows = t["cols"], t["rows"]
-        # Drop zone is restricted to the top 2/3 of the Action Workspace so
-        # it doesn't crowd the bottom of the screen. Bricks scale down to fit.
-        aw_top_h = AW_H * 2 // 3
+        # Drop zone defaults to the top 2/3 of the Action Workspace so
+        # it doesn't crowd the bottom of the screen. Tall layouts
+        # (Task 4/5, 5x7) opt in via `full_height_workspace` to spread
+        # vertically and render bigger bricks.
+        if t.get("full_height_workspace"):
+            # Use ~5/6 of the height — bigger than the default 2/3 so
+            # tall layouts (5x7) breathe, but still keep some bottom
+            # whitespace under the drop zone.
+            aw_top_h = AW_H * 5 // 6
+        else:
+            aw_top_h = AW_H * 2 // 3
         avail_w = AW_W - 16
         avail_h = aw_top_h - 60
         slot_pad = SLOT_PAD_DEFAULT
@@ -1130,7 +1161,7 @@ class App:
         self._correct_t = 0.0
         self._load_task()
         idx = self.task_idx % len(self.tasks)
-        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!")
+        self._notify(f"Task {idx + 1}: {self.tasks[idx]['name']}!", kind="task")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1139,7 +1170,8 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}")
+        self._notify(f"Jumped to Task {idx + 1}: {self.tasks[idx]['name']}",
+                     kind="task")
 
     # ── helpers ──────────────────────────────
 
@@ -1183,9 +1215,18 @@ class App:
                 return s
         return None
 
-    def _notify(self, msg: str):
-        self._notif   = msg
-        self._notif_t = time.time()
+    def _notify(self, msg: str, kind: Optional[str] = None):
+        """Show a transient message in the feedback bar.
+
+        `kind` controls the bar's background-wash colour via MODE_BGR:
+        "drag" for a successful drag, "warn" for blocked / can't-do
+        messages, "task" for task-progression notices. None → no wash
+        (neutral dark bar, used for generic chatter). con_a is drag-
+        only, so the C / F / X / Z modes never fire here, but the
+        palette is shared with ut_b / ut_c for parity."""
+        self._notif      = msg
+        self._notif_t    = time.time()
+        self._notif_kind = kind
 
     def _action_hint(self) -> str:
         """One-line preview of what the next pinch will do, given the
@@ -1362,7 +1403,7 @@ class App:
                         # passes right through them — Task 3's reference
                         # row stays put, Tasks 4/5's red heart stays put.
                         if hit and hit.locked:
-                            self._notify("Locked — can't move")
+                            self._notify("Locked; can't move", kind="warn")
                             self.metrics.log_action(
                                 "drag", 0.0, blocked=True,
                                 target=hit.label, kind=hit.kind)
@@ -1555,12 +1596,21 @@ class App:
         t = self.tasks[idx]
         layout = t["layout"]
 
-        # subtitle (task name)
-        title = f"Task {idx + 1}: {t['name']}"
-        self._put(frame, title, RF_X + 12, RF_Y + 52, 0.46, (80, 80, 75))
+        # Subtitle: "Task N" on line 1, then the task name (possibly
+        # wrapped via the optional `name_lines` override) on the lines
+        # below. Long names like Task 5 would otherwise spill past the
+        # Reference column and overlap the Self View / workspaces.
+        self._put(frame, f"Task {idx + 1}",
+                  RF_X + 12, RF_Y + 48, 0.46, (80, 80, 75))
+        name_lines = t.get("name_lines") or [t['name']]
+        for i, line in enumerate(name_lines):
+            self._put(frame, line,
+                      RF_X + 12, RF_Y + 70 + i * 20,
+                      0.44, (95, 95, 90))
 
-        # task image (the visual goal)
-        img_top    = RF_Y + 60
+        # task image (the visual goal) — top edge slides down with the
+        # number of subtitle lines so it never overlaps the wrapped name.
+        img_top    = RF_Y + 80 + max(0, len(name_lines) - 1) * 20
         img_bottom = RF_Y + RF_H - 30
         img = t.get("image")
         if img is not None:
@@ -1612,34 +1662,58 @@ class App:
                       (160, 160, 155), 1)
 
     def _draw_feedback_bar(self, frame):
+        # Default dark background — used when nothing demands attention.
         self._fill(frame, SF_X, SF_Y, SF_X + SF_W, SF_Y + SF_H, FB_BG, 1.0)
+
+        notif_active = (self._notif
+                        and time.time() - self._notif_t < self.NOTIF_S)
+
+        # Right-half wash whenever a notification fires. con_a is drag-
+        # only — modes never commit — so the wash is purely notif-driven
+        # (drag-blocked warnings, task transitions). Colour comes from
+        # MODE_BGR for parity with ut_b / ut_c.
+        right_x = SF_X + SF_W * 9 // 20      # ~45% across the bar
+        wash = None
+        if notif_active and self._notif_kind is not None:
+            wash = self.MODE_BGR.get(self._notif_kind)
+        elif self.mode != "open":
+            wash = self.MODE_BGR.get(self.mode, None)
+        if wash is not None:
+            ov = frame.copy()
+            cv2.rectangle(ov, (right_x, SF_Y),
+                          (SF_X + SF_W, SF_Y + SF_H), wash, -1)
+            cv2.addWeighted(ov, 0.45, frame, 0.55, 0, frame)
+            cv2.line(frame, (right_x, SF_Y + 4),
+                     (right_x, SF_Y + SF_H - 4), (200, 210, 220), 1)
+
         cv2.rectangle(frame, (SF_X, SF_Y),
                       (SF_X + SF_W, SF_Y + SF_H), FB_BD, 1)
 
+        def put_shadowed(text, x, y, scale, color, thick=2):
+            cv2.putText(frame, text, (x + 1, y + 1),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        (0, 0, 0), thick + 1, cv2.LINE_AA)
+            cv2.putText(frame, text, (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        color, thick, cv2.LINE_AA)
+
+        # LEFT: left-hand status (always shown).
         if self.mode == "open":
             primary = "[Left Hand] open palm  |  Drag mode"
-            mc      = (190, 200, 210)
+            mc      = (220, 230, 240)
         else:
             primary = (f"[Left Hand] {self.mode}  |  "
                        f"{self.MODE_DESC.get(self.mode, '')}  detected")
-            mc = self.MODE_BGR.get(self.mode, (190, 200, 210))
+            mc = self.MODE_BGR.get(self.mode, (220, 230, 240))
+        put_shadowed(primary, SF_X + 16, SF_Y + 30, 0.62, mc, 2)
 
-        # Tells the user what their next pinch will actually do — crucial
-        # in C mode where pinch can mean either copy or paste depending
-        # on whether the cursor is over a brick.
-        hint = self._action_hint()
-        if hint:
-            primary += f"   ->  {hint}"
-
-        self._put(frame, primary, SF_X + 16, SF_Y + 28, 0.56, mc, 1)
-
-        # transient notification on the right
-        if self._notif and time.time() - self._notif_t < self.NOTIF_S:
+        # RIGHT: transient notification (sits over the wash).
+        if notif_active:
             nt = f">  {self._notif}"
             (nw, _), _ = cv2.getTextSize(nt, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            self._put(frame, nt, SF_X + SF_W - nw - 16, SF_Y + 28,
-                      0.50, (220, 225, 200))
+                                          0.62, 2)
+            put_shadowed(nt, SF_X + SF_W - nw - 16, SF_Y + 30, 0.62,
+                         (235, 255, 220), 2)
 
     def _draw_instruction_panel(self, frame):
         # Baseline 1: no gesture shortcuts available, so the panel just

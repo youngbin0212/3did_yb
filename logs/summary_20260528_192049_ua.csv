@@ -1,8 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Place: 10 per box,0.093,5.169,5.076,40,0,0,0,0,0,0,0,0,False,0.0
-1,Place: 6 per row,5.17,5.988,0.818,24,0,0,0,0,0,0,0,0,False,0.0
-2,Find: match shades,5.988,6.944,0.956,8,0,0,0,0,0,0,0,0,False,0.0
-3,Remove non-red,6.944,9.275,2.331,9,0,0,0,0,0,0,0,0,False,0.0
-4,Restore: drag bricks back,9.276,12.017,2.741,25,0,0,0,0,0,0,0,0,False,0.0
-3,Remove non-red,12.017,12.504,0.487,9,0,0,0,0,0,0,0,0,False,0.0
-4,Restore: drag bricks back,12.504,26.365,13.861,25,0,0,0,0,0,0,0,0,False,0.0

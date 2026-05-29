@@ -690,6 +690,9 @@ class App:
         "X":    ( 40,  40, 210),
         "Z":    ( 95, 190,  75),
         "open": (145, 145, 145),
+        "drag": (185, 165,  90),
+        "warn": ( 60, 140, 225),
+        "task": (180, 180, 120),
     }
     MODE_DESC = {
         "C": "Copy / Paste",
@@ -721,6 +724,7 @@ class App:
         self._prev_pin      = False
         self._notif         = ""
         self._notif_t       = 0.0
+        self._notif_kind: Optional[str] = None
         self._raw_frame     = None
         self._next_id       = 0
         self._correct_t     = 0.0
@@ -799,7 +803,10 @@ class App:
         cols, rows = t["cols"], t["rows"]
         # Drop zone is restricted to the top 2/3 of the Action Workspace so
         # it doesn't crowd the bottom of the screen. Bricks scale down to fit.
-        aw_top_h = AW_H * 2 // 3
+        if t.get("full_height_workspace"):
+            aw_top_h = AW_H * 5 // 6
+        else:
+            aw_top_h = AW_H * 2 // 3
         avail_w = AW_W - 16
         avail_h = aw_top_h - 60
         slot_pad = SLOT_PAD_DEFAULT
@@ -1099,7 +1106,7 @@ class App:
         # user-facing notification — the participant should infer the
         # goal from the reference image alone, not from a "Place" /
         # "Find" / "Remove" / "Restore" label.
-        self._notify(f"Task {idx + 1}!")
+        self._notify(f"Task {idx + 1}!", kind="task")
 
     def jump_to_task(self, idx: int):
         """Jump directly to task `idx` (0-based). No-op if out of range."""
@@ -1108,7 +1115,7 @@ class App:
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
-        self._notify(f"Jumped to Task {idx + 1}")
+        self._notify(f"Jumped to Task {idx + 1}", kind="task")
 
     # ── helpers ──────────────────────────────
 
@@ -1152,9 +1159,10 @@ class App:
                 return s
         return None
 
-    def _notify(self, msg: str):
-        self._notif   = msg
-        self._notif_t = time.time()
+    def _notify(self, msg: str, kind: Optional[str] = None):
+        self._notif      = msg
+        self._notif_t    = time.time()
+        self._notif_kind = kind
 
     def _action_hint(self) -> str:
         """One-line preview of what the next pinch will do, given the
@@ -1331,7 +1339,7 @@ class App:
                         # passes right through them — Task 3's reference
                         # row stays put, Tasks 4/5's red heart stays put.
                         if hit and hit.locked:
-                            self._notify("Locked — can't move")
+                            self._notify("Locked; can't move", kind="warn")
                             self.metrics.log_action(
                                 "drag", 0.0, blocked=True,
                                 target=hit.label, kind=hit.kind)
@@ -1583,33 +1591,50 @@ class App:
 
     def _draw_feedback_bar(self, frame):
         self._fill(frame, SF_X, SF_Y, SF_X + SF_W, SF_Y + SF_H, FB_BG, 1.0)
+
+        notif_active = (self._notif
+                        and time.time() - self._notif_t < self.NOTIF_S)
+
+        right_x = SF_X + SF_W * 9 // 20
+        wash = None
+        if notif_active and self._notif_kind is not None:
+            wash = self.MODE_BGR.get(self._notif_kind)
+        elif self.mode != "open":
+            wash = self.MODE_BGR.get(self.mode, None)
+        if wash is not None:
+            ov = frame.copy()
+            cv2.rectangle(ov, (right_x, SF_Y),
+                          (SF_X + SF_W, SF_Y + SF_H), wash, -1)
+            cv2.addWeighted(ov, 0.45, frame, 0.55, 0, frame)
+            cv2.line(frame, (right_x, SF_Y + 4),
+                     (right_x, SF_Y + SF_H - 4), (200, 210, 220), 1)
+
         cv2.rectangle(frame, (SF_X, SF_Y),
                       (SF_X + SF_W, SF_Y + SF_H), FB_BD, 1)
 
+        def put_shadowed(text, x, y, scale, color, thick=2):
+            cv2.putText(frame, text, (x + 1, y + 1),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        (0, 0, 0), thick + 1, cv2.LINE_AA)
+            cv2.putText(frame, text, (x, y),
+                        cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        color, thick, cv2.LINE_AA)
+
         if self.mode == "open":
             primary = "[Left Hand] open palm  |  Drag mode"
-            mc      = (190, 200, 210)
+            mc      = (220, 230, 240)
         else:
             primary = (f"[Left Hand] {self.mode}  |  "
                        f"{self.MODE_DESC.get(self.mode, '')}  detected")
-            mc = self.MODE_BGR.get(self.mode, (190, 200, 210))
+            mc = self.MODE_BGR.get(self.mode, (220, 230, 240))
+        put_shadowed(primary, SF_X + 16, SF_Y + 30, 0.62, mc, 2)
 
-        # Tells the user what their next pinch will actually do — crucial
-        # in C mode where pinch can mean either copy or paste depending
-        # on whether the cursor is over a brick.
-        hint = self._action_hint()
-        if hint:
-            primary += f"   ->  {hint}"
-
-        self._put(frame, primary, SF_X + 16, SF_Y + 28, 0.56, mc, 1)
-
-        # transient notification on the right
-        if self._notif and time.time() - self._notif_t < self.NOTIF_S:
+        if notif_active:
             nt = f">  {self._notif}"
             (nw, _), _ = cv2.getTextSize(nt, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            self._put(frame, nt, SF_X + SF_W - nw - 16, SF_Y + 28,
-                      0.50, (220, 225, 200))
+                                          0.62, 2)
+            put_shadowed(nt, SF_X + SF_W - nw - 16, SF_Y + 30, 0.62,
+                         (235, 255, 220), 2)
 
     def _draw_instruction_panel(self, frame):
         # Baseline 1: no gesture shortcuts available, so the panel just
