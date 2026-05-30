@@ -1,5 +1,0 @@
-task_idx,name,start_t,end_t,duration_s,total_slots,misplacements,correct_placements,mode_changes,action_C,action_F,action_X,action_Z,unintentional,completed,error_rate
-0,Practice 1 - Copy 2x2,0.031,48.553,48.522,4,0,0,1,0,0,0,0,0,False,0.0
-3,Practice 4 - Delete non-red,48.553,67.139,18.586,4,0,0,3,0,0,8,1,0,False,0.0
-4,Practice 5 - Undo restore,67.139,75.022,7.883,9,0,0,1,0,0,0,4,0,True,0.0
-5,Practice 1 - Copy 2x2,77.572,78.282,0.71,4,0,0,0,0,0,0,0,0,False,0.0
