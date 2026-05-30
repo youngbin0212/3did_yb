@@ -37,7 +37,8 @@ New layout per ui_image1.png / ui_image2.png:
   │ Sidebar │ View    │ (webcam)          │ Panel       │       │
   │ 1..N    ├─────────┼───────────────────┴─────────────┤       │
   │         │         │       System Feedback           │ Prog. │
-  │         │ Refer-  ├───────────────────┬─────────────┤ Indi- │
+  │         │ Refer-  ├───────────────────┬─
+  ────────────┤ Indi- │
   │         │ ence    │                   │             │ cator │
   │         │         │  Action           │  Task       │       │
   │         │         │  Workspace        │  Workspace  │       │
@@ -56,7 +57,7 @@ Install:  pip install opencv-python mediapipe numpy
 Run:      python asl_gesture5.py
 """
 
-import atexit, copy, csv, os, random, time, urllib.request
+import atexit, copy, csv, math, os, random, time, urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
@@ -222,22 +223,23 @@ DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 # ──────────────────────────────────────────────
 
 TASK_DEFS = [
-    # Task 1 — Copy (variant 1): Place 10 blocks in each colour box.
-    # 10x4 grid split into 5x2 quadrants — blue (top-left), green
+    # Task 1 — Copy (variant 1): Place 8 blocks in each colour box.
+    # 8x4 grid split into 4x2 quadrants — blue (top-left), green
     # (top-right), yellow (bottom-left), red (bottom-right). 4 seed
     # bricks live in the task workspace (one per colour); the user
-    # copies each one and pastes 10 times into the matching quadrant
-    # → 40 paste actions. Drag is also technically possible but only
+    # copies each one and pastes 8 times into the matching quadrant
+    # → 32 paste actions. Drag is also technically possible but only
     # the 4 seeds exist, so finishing still requires Ring+Pinky.
+    # (Dropped from 10 to 8 per box so the bricks render large enough.)
     {
-        "name": "10 blocks in each box",
+        "name": "Copy: 8 per box",
         "file": "1_copy1.png",
-        "cols": 10, "rows": 4,
+        "cols": 8, "rows": 4,
         "layout": [
-            *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 5)],
-            *[(c, r, "green")  for r in range(0, 2) for c in range(5, 10)],
-            *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 5)],
-            *[(c, r, "red")    for r in range(2, 4) for c in range(5, 10)],
+            *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 4)],
+            *[(c, r, "green")  for r in range(0, 2) for c in range(4, 8)],
+            *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 4)],
+            *[(c, r, "red")    for r in range(2, 4) for c in range(4, 8)],
         ],
         "pool": ["blue", "green", "yellow", "red"],
     },
@@ -245,7 +247,7 @@ TASK_DEFS = [
     # 4 source bricks live in the task workspace (the pool); for each
     # one the user copies it and pastes 6 times into the matching row.
     {
-        "name": "Fill each row",
+        "name": "Copy: 6 times each",
         "file": "2_copy2.png",
         "cols": 6, "rows": 4,
         "layout": [
@@ -264,7 +266,7 @@ TASK_DEFS = [
     # reference of the same shade. con_b has no Find pose, so the
     # user matches purely by visual comparison.
     {
-        "name": "Match the blocks",
+        "name": "Find: match shades",
         "file": "3_find.png",
         "cols": 8, "rows": 2,
         "pre_placed": [
@@ -284,81 +286,55 @@ TASK_DEFS = [
     # delete every non-red brick. delete_protect blocks accidental
     # Fist firings on red.
     {
-        "name": "Keep only red",
+        "name": "Delete: keep only red",
         "file": "4_delete.png",
-        "cols": 5, "rows": 7,
+        "cols": 5, "rows": 5,
         "layout": [
-            # Red heart outline inside a 5x7 grid (the left/right blue
-            # borders from tasks_ver2/4_delete.png have been trimmed so
-            # the bricks render bigger). Blue runs along the top/bottom
-            # rows and yellow fills the gaps inside the heart envelope.
-            #   . . . . .
-            #   . R . R .
-            #   R . R . R
-            #   R . . . R
-            #   . R . R .
-            #   . . R . .
-            #   . . . . .
                             (1, 1, "red"),                  (3, 1, "red"),
             (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
             (0, 3, "red"),                                                  (4, 3, "red"),
                             (1, 4, "red"),                  (3, 4, "red"),
-                                            (2, 5, "red"),
         ],
         "pre_placed": [
-            # Full 5x7 starting board. 10 blue (top/bottom rows) + 15
-            # yellow filler + 10 red heart-outline bricks. The user
-            # Fist-deletes the 25 non-red bricks until only the heart
-            # remains.
-            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
-            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
-            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
-            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
         "pool": [],
         "delete_protect": "red",
-        # Use the full Action Workspace height (not just the top 2/3)
-        # so the 7 rows can spread out and bricks render larger.
-        "full_height_workspace": True,
     },
     # Task 5 — Undo: restore everything that was deleted.
     # Same 5x5 board as Task 4, but the non-red bricks are auto-
     # deleted at load time with one history snapshot pushed per
     # deletion. User restores them with Open-pose undo pinches.
     {
-        "name": "Put back all the blocks that you have removed",
-        "name_lines": ["Put back all the blocks",
-                       "that you have removed"],
+        "name": "Undo: restore blocks",
         "file": "5_undo.png",
-        "cols": 5, "rows": 7,
-        # Same 5x7 board as Task 4. The layout lists ALL 35 positions
-        # so completion requires every auto-deleted non-red brick to be
-        # restored via Open-pose undo.
+        "cols": 5, "rows": 5,
         "layout": [
-            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
-            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
-            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
-            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
         "pre_placed": [
-            (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
-            (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
-            (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
-            (0,3,"red"),    (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
-            (0,4,"yellow"), (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"yellow"),
-            (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
-            (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
+            (0,0,"blue"),  (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
+            (0,1,"blue"),  (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"blue"),
+            (0,2,"red"),   (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
+            (0,3,"red"),   (1,3,"yellow"), (2,3,"yellow"), (3,3,"yellow"), (4,3,"red"),
+            (0,4,"blue"),  (1,4,"red"),    (2,4,"yellow"), (3,4,"red"),    (4,4,"blue"),
         ],
         "pool": [],
         "auto_delete_preserve": "red",
+        # Continuity: when reached straight from Task 4 (delete), inherit
+        # Task 4's board + undo history so the user undoes exactly what
+        # THEY deleted. auto_delete_preserve is the standalone fallback,
+        # used only when Task 5 is jumped to directly (not off Task 4).
+        "continue_from_prev": True,
         "delete_protect": "red",
-        "full_height_workspace": True,
     },
 ]
 
@@ -426,6 +402,51 @@ def draw_mini_lego(frame, x1, y1, w, h, color, border_w=1):
                    _shade(color, 0.55), 1, cv2.LINE_AA)
     cv2.rectangle(frame, (x1, body_y1), (x2, y2),
                   _shade(color, 0.50), border_w, cv2.LINE_AA)
+
+# ──────────────────────────────────────────────
+#  One Euro Filter (1€, Casiez et al., CHI 2012)
+# ──────────────────────────────────────────────
+#  Speed-adaptive low-pass: heavy smoothing when the hand is slow (held
+#  pinch / drag => low jitter), light smoothing when fast (aiming => low
+#  lag). One instance per screen axis. MediaPipe ships no landmark
+#  smoothing, so we add it here. Tuning: lower min_cutoff => less jitter
+#  (more lag); raise beta => less lag at speed.
+
+class OneEuroFilter:
+    def __init__(self, min_cutoff=1.0, beta=0.02, d_cutoff=1.0):
+        self.min_cutoff = float(min_cutoff)
+        self.beta       = float(beta)
+        self.d_cutoff   = float(d_cutoff)
+        self._x_prev    = None
+        self._dx_prev   = 0.0
+        self._t_prev    = None
+
+    @staticmethod
+    def _alpha(cutoff, dt):
+        tau = 1.0 / (2.0 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, x, t):
+        if self._x_prev is None or self._t_prev is None:
+            self._x_prev, self._t_prev = x, t
+            return x
+        dt = t - self._t_prev
+        if dt <= 0.0:
+            dt = 1e-3
+        self._t_prev = t
+        # derivative, itself low-passed at d_cutoff
+        dx = (x - self._x_prev) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        dx_hat = a_d * dx + (1.0 - a_d) * self._dx_prev
+        self._dx_prev = dx_hat
+        # speed-adaptive cutoff for the signal itself
+        cutoff = self.min_cutoff + self.beta * abs(dx_hat)
+        a = self._alpha(cutoff, dt)
+        x_hat = a * x + (1.0 - a) * self._x_prev
+        self._x_prev = x_hat
+        return x_hat
+
+
 
 # ──────────────────────────────────────────────
 #  Data class
@@ -782,7 +803,9 @@ class App:
     PINCH_ON  = 0.055
     PINCH_OFF = 0.075
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    HISTORY_MAX = 50       # number of undo steps Z mode can roll back
+    HISTORY_MAX = 70       # number of undo steps the Open-pose undo can
+                           # roll back (>= Task 4's deletions so Task 5 can
+                           # undo the whole continued board, plus undo churn)
     GUIDE_REVEAL_S = 5.0   # how long the gesture-guide panel stays visible
                            # after a pinch (hidden by default the rest of
                            # the time so the panel doesn't crowd the UI).
@@ -797,6 +820,16 @@ class App:
                          # for the slight right-bias of the thumb-index
                          # midpoint vs. where the user feels they're aiming.
     INDEX_WEIGHT = 0.50  # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
+    # Stable-pinch anchor + One Euro Filter (see OneEuroFilter above).
+    ANCHOR_LM     = 5     # index-finger MCP knuckle — barely moves on pinch
+    PINCH_ARM = 0.11      # pinch_dist below this = "arming" (fingers
+                          # approaching). The cursor freezes here, before the
+                          # curl drift and before the real pinch (ON=0.055),
+                          # so the grab neither jumps nor slides down. Keep it
+                          # > PINCH_OFF so it stays armed through a held pinch.
+    OE_MIN_CUTOFF = 1.0   # lower => less jitter, more lag (held drag)
+    OE_BETA       = 0.02  # higher => less lag at speed (fast aiming)
+    OE_D_CUTOFF   = 1.0
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -825,6 +858,10 @@ class App:
 
     def __init__(self):
         self.task_idx       = 0
+        # Index of the task we last came FROM, so a continue_from_prev task
+        # (Task 5 undo) knows whether it was reached straight off its
+        # predecessor (Task 4) and should inherit that board + undo history.
+        self._prev_task_idx = -1
         self.shapes:        list[Shape] = []
         self.clipboard:     Optional[Shape] = None
         # Full-state undo history. Each entry is a snapshot of all
@@ -843,6 +880,14 @@ class App:
         self._pinch_pt:     Optional[tuple] = None
         self.r_pinch        = False
         self._prev_pin      = False
+        # Frozen aim->anchor offset captured when the fingers ARM (approach
+        # a pinch); while armed/held the cursor rides the stable index-MCP
+        # anchor + this offset, so the closing fingers don't drag it (the
+        # "Heisenberg effect") and there's no jump when the pinch engages.
+        self._pinch_off:    Optional[tuple] = None
+        # One Euro Filter per screen axis — removes residual landmark jitter.
+        self._filt_x = OneEuroFilter(self.OE_MIN_CUTOFF, self.OE_BETA, self.OE_D_CUTOFF)
+        self._filt_y = OneEuroFilter(self.OE_MIN_CUTOFF, self.OE_BETA, self.OE_D_CUTOFF)
         self._notif         = ""
         self._notif_t       = 0.0
         # Symbolic kind of the most recent notification — drives the
@@ -919,18 +964,9 @@ class App:
         """Compute slot/brick dimensions for the current task."""
         t = self.tasks[self.task_idx % len(self.tasks)]
         cols, rows = t["cols"], t["rows"]
-        # Drop zone defaults to the top 2/3 of the Action Workspace so
-        # it doesn't crowd the bottom of the screen. Bricks scale down
-        # to fit. Tall layouts (Task 4/5, 5x7) opt in via
-        # `full_height_workspace` so they can spread vertically and
-        # render bigger bricks instead of compressing into a third.
-        if t.get("full_height_workspace"):
-            # Use ~5/6 of the height — bigger than the default 2/3 so
-            # tall layouts (5x7) breathe, but still keep some bottom
-            # whitespace under the drop zone.
-            aw_top_h = AW_H * 5 // 6
-        else:
-            aw_top_h = AW_H * 2 // 3
+        # Drop zone is restricted to the top 2/3 of the Action Workspace so
+        # it doesn't crowd the bottom of the screen. Bricks scale down to fit.
+        aw_top_h = AW_H * 2 // 3
         avail_w = AW_W - 16
         avail_h = aw_top_h - 60
         slot_pad = SLOT_PAD_DEFAULT
@@ -1098,12 +1134,31 @@ class App:
         self.metrics.end_task(completed=False)
 
         self._configure_slots()
+
+        t = self.tasks[self.task_idx % len(self.tasks)]
+
+        # Continuity: a task flagged `continue_from_prev` (Task 5 undo)
+        # inherits the board AND undo history of the task right before it
+        # (Task 4 delete) instead of resetting + auto-deleting, so the user
+        # undoes exactly what they just deleted -- restoring only as many
+        # bricks as they removed. Only when we actually arrived from the
+        # immediately-preceding task (natural advance OR a one-step jump
+        # off it) and a board exists. A far jump (e.g. Task 2 -> Task 5)
+        # falls through to the normal standalone load (auto-delete) below.
+        if (t.get("continue_from_prev")
+                and self._prev_task_idx == self.task_idx - 1
+                and self.shapes):
+            self.clipboard = None
+            self.highlighted.clear()
+            self.dragging = None
+            self.metrics.start_task(self.task_idx, t["name"], len(t["layout"]))
+            return
+
         self.shapes = []
         self._history      = []
         self.clipboard = None
         self.highlighted.clear()
 
-        t = self.tasks[self.task_idx % len(self.tasks)]
         layout = t["layout"]
         pre_placed = t.get("pre_placed", [])
 
@@ -1222,6 +1277,7 @@ class App:
         return True
 
     def _next_task(self):
+        self._prev_task_idx = self.task_idx
         self.task_idx += 1
         self._correct_t = 0.0
         self._load_task()
@@ -1232,6 +1288,7 @@ class App:
         """Jump directly to task `idx` (0-based). No-op if out of range."""
         if not (0 <= idx < len(self.tasks)):
             return
+        self._prev_task_idx = self.task_idx
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
@@ -1335,10 +1392,7 @@ class App:
                                         subaction="copy",
                                         target=obj.label, kind=obj.kind)
             else:
-                # No hovered brick — pose still logged for telemetry but
-                # the notification is suppressed. Fist / Ring poses are
-                # easy to fire unintentionally, and a constant "hover a
-                # brick" stream is more annoying than helpful.
+                self._notify("Hover a brick to Copy", kind="warn")
                 self.metrics.log_action("C", latency,
                                         subaction="no_target")
             return
@@ -1346,10 +1400,12 @@ class App:
         if pose == "Pinky":
             # Paste at the pointer, snapping to a slot if close enough.
             if self.clipboard is None:
+                self._notify("Clipboard empty", kind="warn")
                 self.metrics.log_action("C", latency,
                                         subaction="empty_clipboard")
                 return
             if self.r_ptr is None:
+                self._notify("Move pointer into view to Paste", kind="warn")
                 self.metrics.log_action("C", latency,
                                         subaction="no_pointer")
                 return
@@ -1411,7 +1467,7 @@ class App:
                 t = self.tasks[self.task_idx % len(self.tasks)]
                 protect = t.get("delete_protect")
                 if obj.locked:
-                    self._notify("Reference — can't delete", kind="warn")
+                    self._notify("Reference: can't delete", kind="warn")
                     self.metrics.log_action("X", latency,
                                             blocked=True,
                                             target=obj.label, kind=obj.kind)
@@ -1435,8 +1491,7 @@ class App:
                         self._correct_t = time.time()
                         self.metrics.end_task(completed=True)
             else:
-                # No hovered brick — silently log and bail. See the
-                # Ring branch above for why these are suppressed.
+                self._notify("Hover a brick to Delete", kind="warn")
                 self.metrics.log_action("X", latency, subaction="no_target")
             return
 
@@ -1454,6 +1509,7 @@ class App:
                     self._correct_t = time.time()
                     self.metrics.end_task(completed=True)
             else:
+                self._notify("Nothing to undo", kind="warn")
                 self.metrics.log_action("Z", latency, subaction="empty_history")
             return
 
@@ -1601,17 +1657,49 @@ class App:
 
         if r_lm:
             # Pointer = weighted blend of index tip (8) and thumb tip (4).
+            # ── Pointer: Heisenberg-robust pinch cursor ────────────────
+            # AIM point (index-driven) — where the user aims while hovering.
             w = self.INDEX_WEIGHT
-            ix = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W + self.PTR_X_OFFSET
-            iy = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
-            self.r_ptr = (ix, iy)
+            aim_x = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W + self.PTR_X_OFFSET
+            aim_y = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
 
-            # Hysteresis: lower threshold to engage, higher to release.
+            # STABLE anchor — the index MCP knuckle hardly moves when the
+            # fingers close, unlike the tips.
+            anc_x = r_lm[self.ANCHOR_LM].x * W
+            anc_y = r_lm[self.ANCHOR_LM].y * H
+
+            # Pinch detection with hysteresis (lower release threshold).
             pd = pinch_dist(r_lm)
             if self.r_pinch:
                 new_pinch = pd < self.PINCH_OFF
             else:
                 new_pinch = pd < self.PINCH_ON
+
+            # Decouple AIMING from CLICKING, jump-free. As soon as the
+            # fingers come within PINCH_ARM (approaching a pinch, before the
+            # curl drags the aim down), freeze the aim->anchor offset from the
+            # CURRENT aim and steer the cursor from the stable index-MCP
+            # anchor for the rest of the approach AND the held pinch.
+            # Capturing it at ARMING -- not at pinch detection -- means
+            # (a) NO jump when the pinch engages, since the cursor is already
+            # held here, and (b) no downward slide, since the offset is taken
+            # before the finger curls.
+            armed = pd < self.PINCH_ARM
+            if armed:
+                if self._pinch_off is None:
+                    self._pinch_off = (aim_x - anc_x, aim_y - anc_y)
+                cx_raw = anc_x + self._pinch_off[0]
+                cy_raw = anc_y + self._pinch_off[1]
+            else:
+                self._pinch_off = None
+                cx_raw, cy_raw = aim_x, aim_y
+
+            # One Euro Filter: kill slow-speed jitter (held drag) without
+            # adding lag during fast aiming.
+            t_now = time.monotonic()
+            ix = self._filt_x(cx_raw, t_now)
+            iy = self._filt_y(cy_raw, t_now)
+            self.r_ptr = (ix, iy)
 
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
@@ -1633,9 +1721,14 @@ class App:
                 if new_pinch:
                     if not self._prev_pin:
                         hit = self._hit(ix, iy)
-                        # Locked reference bricks are not draggable —
-                        # the pinch passes right through them.
-                        if hit and not hit.locked:
+                        # Locked reference bricks are not draggable; a
+                        # delete-protected kind (red in the Delete / Undo
+                        # tasks) can't be dragged out of place either,
+                        # silently. The pinch passes through both.
+                        protect = self.tasks[
+                            self.task_idx % len(self.tasks)].get("delete_protect")
+                        if (hit and not hit.locked
+                                and (protect is None or hit.kind != protect)):
                             # Snapshot BEFORE we mutate the picked-up
                             # brick, so undo can fully rewind the drag.
                             self._push_history()
@@ -1648,6 +1741,16 @@ class App:
                 else:
                     if self.dragging:
                         s = self._nearest_slot(self.dragging.px, self.dragging.py)
+                        if s is not None:
+                            # Don't let a drag EVICT a delete-protected brick
+                            # (red in Delete / Undo) from its slot — refuse
+                            # the snap so the protected piece stays put.
+                            protect = self.tasks[
+                                self.task_idx % len(self.tasks)].get("delete_protect")
+                            if protect is not None and any(
+                                    o.alive and o.slot == s and o.kind == protect
+                                    for o in self.shapes if o.id != self.dragging.id):
+                                s = None
                         if s is not None:
                             for other in self.shapes:
                                 if other.id != self.dragging.id and other.slot == s:
@@ -1822,21 +1925,12 @@ class App:
         t = self.tasks[idx]
         layout = t["layout"]
 
-        # Subtitle: "Task N" on line 1, then the task name (possibly
-        # wrapped via the optional `name_lines` override) on the lines
-        # below. Long names like Task 5 would otherwise spill past the
-        # Reference column and overlap the Self View / workspaces.
-        self._put(frame, f"Task {idx + 1}",
-                  RF_X + 12, RF_Y + 48, 0.46, (80, 80, 75))
-        name_lines = t.get("name_lines") or [t['name']]
-        for i, line in enumerate(name_lines):
-            self._put(frame, line,
-                      RF_X + 12, RF_Y + 70 + i * 20,
-                      0.44, (95, 95, 90))
+        # subtitle (task name)
+        title = f"Task {idx + 1}: {t['name']}"
+        self._put(frame, title, RF_X + 12, RF_Y + 52, 0.46, (80, 80, 75))
 
-        # task image (the visual goal) — top edge slides down with the
-        # number of subtitle lines so it never overlaps the wrapped name.
-        img_top    = RF_Y + 80 + max(0, len(name_lines) - 1) * 20
+        # task image (the visual goal)
+        img_top    = RF_Y + 60
         img_bottom = RF_Y + RF_H - 30
         img = t.get("image")
         if img is not None:
@@ -1888,19 +1982,26 @@ class App:
                       (160, 160, 155), 1)
 
     def _draw_feedback_bar(self, frame):
-        # Default dark background — used when nothing demands attention.
+        # Default dark background — used when nothing interesting is
+        # happening (open / drag mode, no live hint, no notification).
         self._fill(frame, SF_X, SF_Y, SF_X + SF_W, SF_Y + SF_H, FB_BG, 1.0)
 
+        hint = self._action_hint()
         notif_active = (self._notif
                         and time.time() - self._notif_t < self.NOTIF_S)
 
-        # Right-half wash whenever the bar has something to announce.
-        # The colour comes from MODE_BGR so the same action family
-        # always reads the same hue across ut_a / ut_b / ut_c.
+        # Right-hand portion of the bar gets a coloured wash whenever
+        # there is something the user should actually read there — a
+        # live action hint, a fresh notification, or a non-default mode.
+        # The wash colour is chosen so each gesture-family keeps the
+        # same hue across ut_a / ut_b / ut_c (see MODE_BGR). Notification
+        # wins (most transient), then live hint, then standing mode.
         right_x = SF_X + SF_W * 9 // 20      # ~45% across the bar
         wash = None
         if notif_active and self._notif_kind is not None:
             wash = self.MODE_BGR.get(self._notif_kind)
+        elif hint:
+            wash = self.MODE_BGR.get(self.mode, (95, 130, 170))
         elif self.mode != "open":
             wash = self.MODE_BGR.get(self.mode, None)
         if wash is not None:
@@ -1908,14 +2009,15 @@ class App:
             cv2.rectangle(ov, (right_x, SF_Y),
                           (SF_X + SF_W, SF_Y + SF_H), wash, -1)
             cv2.addWeighted(ov, 0.45, frame, 0.55, 0, frame)
+            # Crisper edge between dark left and washed right.
             cv2.line(frame, (right_x, SF_Y + 4),
                      (right_x, SF_Y + SF_H - 4), (200, 210, 220), 1)
 
         cv2.rectangle(frame, (SF_X, SF_Y),
                       (SF_X + SF_W, SF_Y + SF_H), FB_BD, 1)
 
-        # Drop-shadow draw keeps the coloured text legible on either
-        # the dark or the washed half of the bar.
+        # Drop-shadow draw — black underlay keeps the coloured text
+        # readable on either the dark or the washed background.
         def put_shadowed(text, x, y, scale, color, thick=2):
             cv2.putText(frame, text, (x + 1, y + 1),
                         cv2.FONT_HERSHEY_SIMPLEX, scale,
@@ -1924,7 +2026,7 @@ class App:
                         cv2.FONT_HERSHEY_SIMPLEX, scale,
                         color, thick, cv2.LINE_AA)
 
-        # LEFT: left-hand status (always shown).
+        # Left-hand status (always shown, slightly larger than before).
         if self.mode == "open":
             primary = "[Left Hand] open palm  |  Drag mode"
             mc      = (220, 230, 240)
@@ -1934,7 +2036,14 @@ class App:
             mc = self.MODE_BGR.get(self.mode, (220, 230, 240))
         put_shadowed(primary, SF_X + 16, SF_Y + 30, 0.62, mc, 2)
 
-        # RIGHT: transient notification (sits over the wash).
+        # Action hint — what the next pinch will actually do. Painted
+        # bigger so it reads at a glance against the washed background.
+        if hint:
+            hint_txt = f"->  {hint}"
+            put_shadowed(hint_txt, right_x + 14, SF_Y + 30, 0.66,
+                         (255, 245, 200), 2)
+
+        # Transient notification on the far right — also enlarged.
         if notif_active:
             nt = f">  {self._notif}"
             (nw, _), _ = cv2.getTextSize(nt, cv2.FONT_HERSHEY_SIMPLEX,
@@ -2341,7 +2450,7 @@ def main():
 
             raw    = cv2.flip(raw, 1)
             rgb    = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-            ts_ms  = int(cap.get(cv2.CAP_PROP_POS_MSEC))
+            ts_ms = int(time.monotonic() * 1000)
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             result = landmarker.detect_for_video(mp_img, ts_ms)
 

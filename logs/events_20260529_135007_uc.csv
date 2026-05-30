@@ -1,5 +1,0 @@
-t,task_idx,task_name,event_type,total_slots,completed,duration_s,misplacements,correct_placements,error_rate
-0.082,0,10 blocks in each box,task_start,40,,,,,
-15.557,0,10 blocks in each box,task_end,,False,15.475,0,0,0.0
-15.557,3,Keep only red,task_start,10,,,,,
-17.823,3,Keep only red,task_end,,False,2.266,0,0,0.0

@@ -1,9 +1,20 @@
 #!/usr/bin/env python3
 """
-Gesture Workspace v5  (MediaPipe Tasks API)
+Gesture Workspace — BASELINE 1, ENDLESS pool (drag-only)
 ============================================
-v5 adds a usability metrics logger on top of v4. On exit, three CSVs are
-written to ./logs/:
+Variant of ut_a (BASELINE 1, drag-only) where the pool is collapsed to a
+single brick per colour and each duplicate-colour source becomes an
+ENDLESS "spawner": grabbing one leaves the source in place and pulls out a
+fresh clone, so condition A never runs out of bricks no matter how many a
+task needs (e.g. 8 per box). Colours that were only ever needed once
+(the Find task's unique shades) stay finite, exactly like ut_a.
+
+Like ut_a, left-hand mode commits are suppressed: the mode stays "open"
+forever so only pinch-and-drag works. C / F / X / Z shortcuts are inert.
+Used as the no-shortcut baseline for comparing against the full gesture
+build in the usability evaluation.
+
+On exit, three CSVs are written to ./logs/:
   events_<id>.csv   one row per raw event (mode change, action, placement, ...)
   summary_<id>.csv  one row per task (duration, error rate, action counts)
   session_<id>.csv  session-wide totals incl. unintentional-action rate
@@ -52,8 +63,8 @@ from mediapipe.tasks.python import vision as mp_vision
 #  log filename so per-condition analysis can group sessions cleanly.
 # ──────────────────────────────────────────────
 
-BUILD_NAME = "ut_c"    # full label written into session CSV
-BUILD_TAG  = "uc"      # short suffix appended to log filenames
+BUILD_NAME = "ut_a_endless"   # full label written into session CSV
+BUILD_TAG  = "uae"            # short suffix appended to log filenames
 
 # ──────────────────────────────────────────────
 #  Model
@@ -202,38 +213,36 @@ DEFAULT_POOL_COLORS = ["red", "green", "blue", "yellow", "purple", "grey"]
 #  Tasks  (target lego arrangements; reference images in tasks/)
 # ──────────────────────────────────────────────
 
+#  ut_a TASK_DEFS — same 5-task narrative as ut_b / ut_c, but every
+#  task has to be solvable with drag alone (no C/F/X/Z modes are wired
+#  up in this build). That means the Copy tasks ship with a pool sized
+#  to the full slot count (one bricks-to-drag per slot), the Delete
+#  task locks reds so a stray drag can't disturb the goal pattern, and
+#  the Undo task auto-deletes non-reds at load and replenishes the pool
+#  so "restoring" is done by dragging fresh bricks in.
+
 TASK_DEFS = [
-    # Task 1 — Copy (variant 1): Place 8 blocks in each colour box.
-    # The reference image shows 4 large coloured boxes in a 2x2 layout,
-    # each holding 8 blocks. We mirror that with an 8x4 grid split into
-    # four 4x2 quadrants — blue (top-left), green (top-right), yellow
-    # (bottom-left), red (bottom-right). 4 seed bricks live in the
-    # task workspace (one per colour); the user copies each one and
-    # pastes 8 times into the matching quadrant → 32 paste actions.
-    # (Dropped from 10 to 8 per box so the bricks render large enough.)
+    # Task 1 — Drag-only Copy 1: place 8 blocks in each colour box.
+    # Pool ships with 32 bricks (8 of each colour) so the user can
+    # finish purely by drag-and-drop. Same 2x2 quadrant layout as ut_c
+    # so the goal image still matches. (Dropped from 10 to 8 per box so
+    # the bricks render large enough to grab comfortably.)
     {
         "name": "8 blocks in each box",
         "file": "1_copy1.png",
         "cols": 8, "rows": 4,
         "layout": [
-            # Top-left quadrant — blue (cols 0..3, rows 0..1)
             *[(c, r, "blue")   for r in range(0, 2) for c in range(0, 4)],
-            # Top-right quadrant — green (cols 4..7, rows 0..1)
             *[(c, r, "green")  for r in range(0, 2) for c in range(4, 8)],
-            # Bottom-left quadrant — yellow (cols 0..3, rows 2..3)
             *[(c, r, "yellow") for r in range(2, 4) for c in range(0, 4)],
-            # Bottom-right quadrant — red (cols 4..7, rows 2..3)
             *[(c, r, "red")    for r in range(2, 4) for c in range(4, 8)],
         ],
-        # Seeds live in the task workspace (consistent with Task 2) so
-        # the panel isn't empty and the source/destination split is
-        # visually obvious. Drag is also possible but only the 4 seeds
-        # exist, so finishing still requires C-mode copy + paste.
-        "pool": ["blue", "green", "yellow", "red"],
+        # 8 of each colour — drag-only solution exists.
+        "pool": (["blue"] * 8 + ["green"]  * 8 +
+                 ["yellow"] * 8 + ["red"]    * 8),
     },
-    # Task 2 — Copy (variant 2): Copy each block 6 times.
-    # 4 source bricks live in the task workspace (the pool); for each one
-    # the user copies it and pastes 6 times into the matching coloured row.
+    # Task 2 — Drag-only Copy 2: place 6 per row.
+    # Pool ships with 24 bricks (6 of each colour) for drag-only fill.
     {
         "name": "Fill each row",
         "file": "2_copy2.png",
@@ -244,19 +253,14 @@ TASK_DEFS = [
             *[(c, 2, "green")  for c in range(6)],
             *[(c, 3, "yellow") for c in range(6)],
         ],
-        # Seeds live in the pool (one per colour) instead of pre-placed
-        # in slots — matches the "copy each block 6 times" framing where
-        # nothing is in the slots yet.
-        "pool": ["pink", "purple", "green", "yellow"],
+        "pool": (["pink"] * 6 + ["purple"] * 6 +
+                 ["green"] * 6 + ["yellow"] * 6),
     },
     # Task 3 — Find: match similar-looking blocks.
-    # Row 0 holds 8 LOCKED reference bricks (the "examples") — visible
-    # at the top of the drop zone but immune to drag / copy / delete.
-    # F-mode still works on them, so the user can hover a reference and
-    # see the matching pool brick highlight. Row 1 below is where the
-    # answer slots live: the user matches each pool brick to the slot
-    # directly under the reference of the same shade. Pool ordering is
-    # shuffled so a position-based shortcut isn't possible.
+    # Same shape as ut_c — row 0 holds 8 LOCKED reference bricks,
+    # row 1 is the answer row. Pool has one brick per shade in a
+    # shuffled order so straight-down dragging won't work. con_a has
+    # no F-pose, so the user matches purely by visual comparison.
     {
         "name": "Match the blocks",
         "file": "3_find.png",
@@ -269,24 +273,22 @@ TASK_DEFS = [
             (0, 1, "b1"), (1, 1, "b2"), (2, 1, "b3"), (3, 1, "b4"),
             (4, 1, "b5"), (5, 1, "b6"), (6, 1, "b7"), (7, 1, "b8"),
         ],
-        # Non-trivial fixed order — user can't just drag straight down.
         "pool": ["b5", "b1", "b8", "b3", "b6", "b2", "b7", "b4"],
         "lock_pre_placed": True,
     },
-    # Task 4 — Delete: remove all non-red blocks.
-    # The grid starts FULLY pre-filled with a red heart pattern surrounded
-    # by blue + yellow intruders. The layout only lists the red positions,
-    # so to satisfy _check_answer the user has to X-mode delete every
-    # non-red brick (the "extras in non-layout slots" check rejects the
-    # board until they're all gone).
+    # Task 4 — Drag-only Delete: remove all non-red blocks.
+    # Same 5x5 board as ut_c, fully pre-filled. The 9 red bricks are
+    # locked via `lock_kind: red` so a stray drag can't nudge them
+    # out and corrupt the heart pattern; the user drags blues+yellows
+    # out of their slots until only reds remain. _check_answer's
+    # extras-in-non-layout-slots check completes the task.
     {
         "name": "Keep only red",
         "file": "4_delete.png",
         "cols": 5, "rows": 7,
         "layout": [
             # 10 red heart-outline positions inside a 5x7 grid (the
-            # left/right blue side borders have been trimmed from the
-            # original 4_delete.png so bricks render larger).
+            # left/right blue side borders have been trimmed).
                             (1, 1, "red"),                  (3, 1, "red"),
             (0, 2, "red"),                  (2, 2, "red"),                  (4, 2, "red"),
             (0, 3, "red"),                                                  (4, 3, "red"),
@@ -294,9 +296,7 @@ TASK_DEFS = [
                                             (2, 5, "red"),
         ],
         "pre_placed": [
-            # 5x7 board: 10 blue (top/bottom rows) + 15 yellow filler +
-            # 10 red heart-outline. The user X-deletes the 25 non-red
-            # bricks until only the heart remains.
+            # 5x7 board: 10 blue (top/bottom rows) + 15 yellow + 10 red.
             (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
             (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
             (0,2,"red"),    (1,2,"yellow"), (2,2,"red"),    (3,2,"yellow"), (4,2,"red"),
@@ -306,26 +306,22 @@ TASK_DEFS = [
             (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
         "pool": [],
-        # Red is the target to PRESERVE — X-mode pinches on red are
-        # no-ops. Stops a misfired pinch from corrupting the goal state.
-        "delete_protect": "red",
+        # Lock only the red bricks so their drag-pickup is rejected.
+        "lock_kind": "red",
         # Use the full Action Workspace height (not just the top 2/3)
         # so the 7 rows can spread out and bricks render larger.
         "full_height_workspace": True,
     },
-    # Task 5 — Undo: restore everything that was deleted.
-    # Same 5×5 board as Task 4, but the non-red bricks are auto-deleted at
-    # load time (with one history snapshot pushed per deletion). The user
-    # restores them one Z-mode pinch at a time, until the full board is
-    # back. The layout lists ALL 25 positions, so completion requires
-    # every snapshot to be popped.
+    # Task 5 — Drag-only Undo: restore everything that was deleted.
+    # Same 5x7 board as Task 4. Auto-deletion at load kills the 25
+    # non-red bricks; the pool ships with matching replacements
+    # (10 blues + 15 yellows) so the user drags fresh pieces in.
     {
         "name": "Put back all the blocks that you have removed",
         "name_lines": ["Put back all the blocks",
                        "that you have removed"],
         "file": "5_undo.png",
         "cols": 5, "rows": 7,
-        # Same 5x7 board as Task 4.
         "layout": [
             (0,0,"blue"),   (1,0,"blue"),   (2,0,"blue"),   (3,0,"blue"),   (4,0,"blue"),
             (0,1,"yellow"), (1,1,"red"),    (2,1,"yellow"), (3,1,"red"),    (4,1,"yellow"),
@@ -344,21 +340,9 @@ TASK_DEFS = [
             (0,5,"yellow"), (1,5,"yellow"), (2,5,"red"),    (3,5,"yellow"), (4,5,"yellow"),
             (0,6,"blue"),   (1,6,"blue"),   (2,6,"blue"),   (3,6,"blue"),   (4,6,"blue"),
         ],
-        "pool": [],
-        # At load, pre-delete every brick whose kind != "red", recording
-        # one undo step per deletion. The user reverses those deletions
-        # with Z-mode pinches until the board is whole again.
+        "pool": ["blue"] * 10 + ["yellow"] * 15,
         "auto_delete_preserve": "red",
-        # Continuity: when reached straight from Task 4 (the delete task),
-        # inherit Task 4's board + undo history so the user undoes exactly
-        # what THEY deleted — restoring only as many bricks as they removed.
-        # auto_delete_preserve above is the standalone fallback used only
-        # when Task 5 is jumped to directly (not off Task 4).
-        "continue_from_prev": True,
-        # Red bricks are immune to X-mode here too: this task is about
-        # restoring with undo, not re-deleting reds the auto-load left
-        # alone. A stray pinch on a red shouldn't derail it.
-        "delete_protect": "red",
+        "lock_kind": "red",
         "full_height_workspace": True,
     },
 ]
@@ -472,7 +456,6 @@ class OneEuroFilter:
         return x_hat
 
 
-
 # ──────────────────────────────────────────────
 #  Data class
 # ──────────────────────────────────────────────
@@ -488,9 +471,14 @@ class Shape:
     kind:  str
     alive: bool   = True
     slot:  object = None
-    # Locked bricks are reference/example pieces — visible and F-mode
-    # targetable, but immune to drag, copy, paste-replace, and delete.
+    # Locked bricks are reference/example pieces — visible but immune
+    # to drag pickup and to being evicted by another drag-drop. Used
+    # by Task 3 (locked top row) and Tasks 4/5 (locked red bricks).
     locked: bool  = False
+    # Spawner bricks are ENDLESS sources (ut_a_endless only): grabbing
+    # one never moves it — a fresh clone is pulled out and dragged
+    # instead, so the source never depletes.
+    spawner: bool = False
 
 # ──────────────────────────────────────────────
 #  Hand classifier  (unchanged from v3)
@@ -582,7 +570,6 @@ class MetricsLogger:
         self.current_task: Optional[dict] = None
         self._frames_total      = 0
         self._frames_right_hand = 0
-        self._panel_opens       = 0
         self._last_action_idx: Optional[int] = None
         self._written = False
 
@@ -701,15 +688,6 @@ class MetricsLogger:
         if right_hand_detected:
             self._frames_right_hand += 1
 
-    # ── panel reference count ──────────────────
-    def log_panel_open(self):
-        """Record one user-initiated open of the gesture-guide panel.
-        Builds where the panel is always visible never call this, so
-        their session CSVs report panel_opens=0.
-        """
-        self._panel_opens += 1
-        self.log_event("panel_open", count=self._panel_opens)
-
     # ── persist ────────────────────────────────
     def write_to_disk(self):
         if self._written:
@@ -773,7 +751,6 @@ class MetricsLogger:
             w.writerow(["frames_total",                self._frames_total])
             w.writerow(["frames_right_hand_detected",  self._frames_right_hand])
             w.writerow(["right_hand_loss_rate",        round(loss_rate, 3)])
-            w.writerow(["panel_opens",                 self._panel_opens])
 
         print(f"[metrics] wrote {ev_path}")
         if self.task_records:
@@ -792,9 +769,7 @@ class App:
     PINCH_ON  = 0.055
     PINCH_OFF = 0.075
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    HISTORY_MAX = 70       # number of undo steps Z mode can roll back
-                           # (>= Task 4's deletions so Task 5 can undo the
-                           # whole continued board, plus task-4 undo churn)
+    HISTORY_MAX = 50       # number of undo steps Z mode can roll back
     GUIDE_REVEAL_S = 5.0   # how long the gesture-guide panel stays visible
                            # after a pinch (hidden by default the rest of
                            # the time so the panel doesn't crowd the UI).
@@ -808,7 +783,12 @@ class App:
     PTR_X_OFFSET = -18   # shift cursor left (negative = left). Compensates
                          # for the slight right-bias of the thumb-index
                          # midpoint vs. where the user feels they're aiming.
-    INDEX_WEIGHT = 0.50  # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
+    INDEX_WEIGHT = 0.50  # AIM point (while hovering) = INDEX_WEIGHT*index +
+                         # (1-INDEX_WEIGHT)*thumb (0.5 = midpoint). While a
+                         # pinch is HELD this is ignored: the cursor is
+                         # steered from the index-MCP anchor instead (see
+                         # update()), which is what kills the closing-finger
+                         # drift rather than just leaning toward the thumb.
     # Stable-pinch anchor + One Euro Filter (see OneEuroFilter above).
     ANCHOR_LM     = 5     # index-finger MCP knuckle — barely moves on pinch
     PINCH_ARM = 0.11      # pinch_dist below this = "arming" (fingers
@@ -831,8 +811,8 @@ class App:
         "Z":    ( 95, 190,  75),
         "open": (145, 145, 145),
         # Symbolic colours shared across ut_a / ut_b / ut_c so each
-        # action family always reads the same hue. These three appear
-        # only in the feedback-bar wash (not as gesture modes):
+        # action family always reads the same hue. Only "drag" / "warn"
+        # / "task" matter for ut_a (which has no C/F/X/Z modes):
         "drag": (185, 165,  90),   # successful drag — soft teal
         "warn": ( 60, 140, 225),   # blocked / can't-do — amber
         "task": (180, 180, 120),   # task transition / progression
@@ -847,10 +827,6 @@ class App:
 
     def __init__(self):
         self.task_idx       = 0
-        # Index of the task we last came FROM, so a continue_from_prev task
-        # (Task 5 undo) knows whether it was reached straight off its
-        # predecessor (Task 4) and should inherit that board + undo history.
-        self._prev_task_idx = -1
         self.shapes:        list[Shape] = []
         self.clipboard:     Optional[Shape] = None
         # Full-state undo history. Each entry is a snapshot of all
@@ -1081,12 +1057,21 @@ class App:
         while cols * rows < n:
             cols += 1
         cell_w = avail_w // cols
-        cell_h = avail_h // rows
+        # Endless pools are small (2–8 bricks). Dividing the full, tall
+        # workspace height evenly across the rows spread them out and
+        # dropped the lower rows near the floor (the yellow Task-5 source
+        # ended up almost at the bottom). Cap the row height to the brick
+        # size plus a little breathing room and bias the block toward the
+        # top, so the bricks form a neat cluster in the upper area. The
+        # top row keeps roughly its original spot; only the lower rows
+        # ride up.
+        cell_h = min(avail_h // rows, self.brick_h + 50)
+        top    = TW_HEADER_H + max(0, (avail_h - cell_h * rows) // 4)
         out = []
         for r in range(rows):
             for c in range(cols):
                 cx = TW_INNER_PAD + cell_w * c + cell_w // 2
-                cy = TW_HEADER_H  + cell_h * r + cell_h // 2
+                cy = top + cell_h * r + cell_h // 2
                 out.append((cx, cy))
         return out[:n]
 
@@ -1135,41 +1120,26 @@ class App:
         self.metrics.end_task(completed=False)
 
         self._configure_slots()
-
-        t = self.tasks[self.task_idx % len(self.tasks)]
-
-        # Continuity: a task flagged `continue_from_prev` (Task 5 undo)
-        # inherits the board AND undo history of the task right before it
-        # (Task 4 delete) instead of resetting + auto-deleting, so the user
-        # undoes exactly what they just deleted — restoring only as many
-        # bricks as they removed. Only when we actually arrived from the
-        # immediately-preceding task (natural advance OR a one-step jump
-        # off it) and a board exists. A far jump (e.g. Task 2 -> Task 5)
-        # falls through to the normal standalone load (auto-delete) below.
-        if (t.get("continue_from_prev")
-                and self._prev_task_idx == self.task_idx - 1
-                and self.shapes):
-            self.clipboard = None
-            self.highlighted.clear()
-            self.dragging = None
-            self.metrics.start_task(self.task_idx, t["name"], len(t["layout"]))
-            return
-
         self.shapes = []
         self._history      = []
         self.clipboard = None
         self.highlighted.clear()
 
+        t = self.tasks[self.task_idx % len(self.tasks)]
         layout = t["layout"]
         pre_placed = t.get("pre_placed", [])
 
-        # 1) Pre-placed bricks go directly into their slots (action workspace).
-        #    When `lock_pre_placed` is set, those pre-placed bricks become
-        #    reference/example pieces — visible to F-mode but immune to
-        #    drag / copy / paste-replace / delete.
+        # 1) Pre-placed bricks go directly into their slots (action
+        #    workspace). `lock_pre_placed` locks every pre-placed
+        #    brick (used by Task 3's reference row); `lock_kind` locks
+        #    only the pre-placed bricks of one specific kind (used by
+        #    Tasks 4/5 to pin the reds in place while letting the user
+        #    drag everything else).
         lock_pre_placed = bool(t.get("lock_pre_placed", False))
+        lock_kind = t.get("lock_kind")
         labels_pre = "abcdefghijklmnop"
         for i, (col, row, kind) in enumerate(pre_placed):
+            is_locked = lock_pre_placed or (lock_kind is not None and kind == lock_kind)
             cx, cy = self._slot_center(col, row)
             self.shapes.append(Shape(
                 id     = self._next_id,
@@ -1179,15 +1149,14 @@ class App:
                 label  = labels_pre[i % len(labels_pre)],
                 kind   = kind,
                 slot   = (col, row),
-                locked = lock_pre_placed,
+                locked = is_locked,
             ))
             self._next_id += 1
 
         # 2) Pool: a task can either provide an explicit `pool` list
-        #    (e.g. the new Copy / Find / Delete / Undo tasks, where the
-        #    pool is hand-picked to force a specific gesture) or fall
-        #    back to the legacy auto-fill: every slot that still needs a
-        #    correct brick gets one in the pool, plus distractors.
+        #    (the new Place/Find/Remove/Restore tasks pre-size the
+        #    pool to exactly the bricks needed for a drag-only solve)
+        #    or fall back to the legacy auto-fill (needed + distractors).
         explicit_pool = t.get("pool")
         if explicit_pool is not None:
             pool = list(explicit_pool)
@@ -1196,14 +1165,24 @@ class App:
             needed = [exp for c, r, exp in layout if placed.get((c, r)) != exp]
             pool_size = max(len(needed) + 3, 12)
             pool = list(needed)
-            # Find-task tasks specify their own narrow distractor palette
-            # (target + visually-similar colors). Other tasks fall back to
-            # the default 6-colour set.
             allowed = t.get("pool_colors") or DEFAULT_POOL_COLORS
             while len(pool) < pool_size:
                 pool.append(random.choice(allowed))
             pool = pool[:pool_size]
             random.shuffle(pool)
+
+        # ENDLESS variant: collapse the pool to ONE brick per distinct
+        # colour. A colour that originally appeared more than once (the
+        # copy / restore tasks that ask for many of the same brick) keeps
+        # a single ENDLESS spawner source; a colour needed only once (the
+        # Find task's unique shades) stays an ordinary finite brick, so
+        # those tasks behave exactly like ut_a.
+        counts = {}
+        for k in pool:
+            counts[k] = counts.get(k, 0) + 1
+        seen = set()
+        pool = [k for k in pool if not (k in seen or seen.add(k))]
+        spawner_kinds = {k for k, n in counts.items() if n > 1}
 
         positions = self._build_scatter_positions(len(pool))
 
@@ -1212,28 +1191,27 @@ class App:
             jx = rx + random.randint(-4, 4)
             jy = ry + random.randint(-3, 3)
             self.shapes.append(Shape(
-                id    = self._next_id,
-                px    = float(TW_X + jx),
-                py    = float(TW_Y + jy),
-                w     = self.brick_w, h = self.brick_h,
-                label = labels[i % len(labels)],
-                kind  = pool[i],
+                id      = self._next_id,
+                px      = float(TW_X + jx),
+                py      = float(TW_Y + jy),
+                w       = self.brick_w, h = self.brick_h,
+                label   = labels[i % len(labels)],
+                kind    = pool[i],
+                spawner = pool[i] in spawner_kinds,
             ))
             self._next_id += 1
 
-        # 3) Optional auto-deletion. Used by the Undo task to seed the
-        #    board with a "you've already deleted these" state plus a
-        #    matching undo stack — one snapshot per deletion — so the
-        #    user can roll the board back one Z-pinch at a time.
+        # 3) Optional auto-deletion. Used by the Restore task to seed
+        #    the board with a "you've already deleted these" state.
+        #    The pool above ships with the matching replacement bricks
+        #    so the user can drag fresh pieces into the empty slots.
         preserve_kind = t.get("auto_delete_preserve")
         if preserve_kind is not None:
             to_delete = [
                 s for s in self.shapes
                 if s.alive and s.slot is not None and s.kind != preserve_kind
             ]
-            random.shuffle(to_delete)
             for s in to_delete:
-                self._push_history()
                 s.alive = False
                 s.slot  = None
 
@@ -1250,10 +1228,10 @@ class App:
 
     def _is_paste_target(self, shape) -> bool:
         """True if a pinch in C mode would PASTE (replace) onto `shape`
-        instead of copying it. Triggered when clipboard has content and
-        the hovered brick is sitting in a slot — i.e. the user is aiming
-        at the drop zone to swap a piece. Locked reference bricks are
-        never paste targets (the user can't overwrite an example)."""
+        instead of copying it. con_a has no C mode (mode is pinned to
+        "open"), so this is dead in this build — kept for parity with
+        ut_b / ut_c so the rest of the call sites compile. Locked
+        references are never paste targets either."""
         return (self.mode == "C"
                 and self.clipboard is not None
                 and shape is not None
@@ -1268,11 +1246,10 @@ class App:
                         if s.alive and s.slot == (col, row)), None)
             if occ is None or occ.kind != expected:
                 return False
-        # Reject extras occupying a non-layout slot — the Delete task's
-        # win condition is "only the listed (red) slots are filled and
-        # nothing else", which we enforce here. Locked reference bricks
-        # are exempt (they live in their own row above the target slots
-        # and are part of the puzzle setup, not extras).
+        # Reject extras occupying a non-layout slot — the Remove-non-red
+        # task's win condition is "only the listed (red) slots are filled
+        # and nothing else". Locked reference bricks (Task 3's row 0)
+        # are exempt — they're puzzle setup, not extras.
         for s in self.shapes:
             if s.alive and s.slot is not None and s.slot not in layout_slots:
                 if s.locked:
@@ -1281,7 +1258,6 @@ class App:
         return True
 
     def _next_task(self):
-        self._prev_task_idx = self.task_idx
         self.task_idx += 1
         self._correct_t = 0.0
         self._load_task()
@@ -1292,7 +1268,6 @@ class App:
         """Jump directly to task `idx` (0-based). No-op if out of range."""
         if not (0 <= idx < len(self.tasks)):
             return
-        self._prev_task_idx = self.task_idx
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
@@ -1319,18 +1294,10 @@ class App:
             self._buf.pop(0)
         if len(self._buf) == self.STABLE and len(set(self._buf)) == 1:
             self._stable_count = self.STABLE
-            new = self._buf[0]
-            if new in ("C", "F", "X", "Z", "open"):
-                if new != self.mode:
-                    latency = ((time.time() - self._gesture_first_t)
-                               if self._gesture_first_t else 0.0)
-                    old_mode = self.mode
-                    # Clear the F-mode "find" highlight on any mode change.
-                    self.highlighted.clear()
-                    self.mode = new
-                    self.metrics.log_mode_change(old_mode, new, latency)
-                    self._pending_gesture = None
-                    self._gesture_first_t = None
+            # Baseline 1: mode commits are suppressed. Stability is still
+            # tracked above so the UI stability bar behaves identically,
+            # but the mode never leaves "open" — only drag works.
+            pass
         else:
             # count contiguous matches at the tail
             tail = self._buf[-1]
@@ -1353,10 +1320,11 @@ class App:
         """Show a transient message in the feedback bar.
 
         `kind` controls the bar's background-wash colour via MODE_BGR:
-        "C" / "F" / "X" / "Z" for the four action families, "drag" for
-        a successful drag, "warn" for blocked / can't-do messages,
-        "task" for task-progression notices. None → no wash (neutral
-        dark bar, used for generic chatter)."""
+        "drag" for a successful drag, "warn" for blocked / can't-do
+        messages, "task" for task-progression notices. None → no wash
+        (neutral dark bar, used for generic chatter). con_a is drag-
+        only, so the C / F / X / Z modes never fire here, but the
+        palette is shared with ut_b / ut_c for parity."""
         self._notif      = msg
         self._notif_t    = time.time()
         self._notif_kind = kind
@@ -1366,8 +1334,6 @@ class App:
         current mode + cursor + clipboard state. Empty string when the
         action would be a no-op or the mode doesn't need a hint."""
         if self.mode == "C":
-            if self.hovered is not None and self.hovered.locked:
-                return "(Reference: can't copy)"
             paste_over = self._is_paste_target(self.hovered)
             if self.hovered is not None and not paste_over:
                 return f"Copy '{self.hovered.label}'"
@@ -1380,11 +1346,6 @@ class App:
         if self.mode == "F" and self.hovered is not None:
             return f"Find {self.hovered.kind} pieces"
         if self.mode == "X" and self.hovered is not None:
-            if self.hovered.locked:
-                return "(Reference: can't delete)"
-            t = self.tasks[self.task_idx % len(self.tasks)]
-            if t.get("delete_protect") == self.hovered.kind:
-                return f"(You can't delete this {self.hovered.kind} block.)"
             return f"Delete '{self.hovered.label}'"
         if self.mode == "Z" and self._history:
             return f"Undo (stack: {len(self._history)})"
@@ -1396,31 +1357,11 @@ class App:
         obj = self.hovered
         latency = ((time.time() - self._pinch_start_t)
                    if self._pinch_start_t else 0.0)
-
-        # All pinch-fired actions are silently ignored when the right-
-        # hand cursor is inside the Instruction Panel (Gesture
-        # Shortcuts cheat sheet). The panel is for guidance only, not
-        # a workspace, so a pinch there shouldn't fire copy / paste /
-        # find / delete / undo. No notification — silent metric only.
-        if (self.r_ptr is not None
-                and IP_X <= self.r_ptr[0] <= IP_X + IP_W
-                and IP_Y <= self.r_ptr[1] <= IP_Y + IP_H):
-            self.metrics.log_action(self.mode, latency,
-                                    blocked=True,
-                                    subaction="over_panel")
-            return
-
         if self.mode == "C":
             paste_over = self._is_paste_target(obj)
-            if obj is not None and obj.locked:
-                # Locked references cannot be copied OR overwritten.
-                self._notify("Reference: can't copy", kind="warn")
-                self.metrics.log_action("C", latency,
-                                        blocked=True,
-                                        target=obj.label, kind=obj.kind)
-            elif obj and not paste_over:
+            if obj and not paste_over:
                 self.clipboard = copy.copy(obj)
-                self._notify(f"Copied: {obj.label}", kind="C")
+                self._notify(f"Copied: {obj.label}")
                 self.metrics.log_action("C", latency,
                                         subaction="copy",
                                         target=obj.label, kind=obj.kind)
@@ -1479,64 +1420,33 @@ class App:
                     self.metrics.end_task(completed=True)
 
                 self._notify(f"Pasted: {new.label}"
-                             + (" -> slot" if snap is not None else ""),
-                             kind="C")
+                             + (" -> slot" if snap is not None else ""))
             else:
-                self._notify("Clipboard empty", kind="warn")
+                self._notify("Clipboard empty")
                 self.metrics.log_action("C", latency, subaction="empty_clipboard")
         elif self.mode == "F":
             if obj:
                 self.highlighted = {s.id for s in self.shapes
                                     if s.alive and s.kind == obj.kind}
-                self._notify(f"{obj.kind}: {len(self.highlighted)} highlighted",
-                             kind="F")
+                self._notify(f"{obj.kind}: {len(self.highlighted)} highlighted")
                 self.metrics.log_action("F", latency,
                                         kind=obj.kind,
                                         count=len(self.highlighted))
         elif self.mode == "X":
             if obj:
-                # Per-task delete guard: a stray pinch on a "protected"
-                # kind (e.g. red in the Delete / Undo tasks) or on a
-                # locked reference is rejected so an unstable pinch can't
-                # corrupt the goal state.
-                t = self.tasks[self.task_idx % len(self.tasks)]
-                protect = t.get("delete_protect")
-                if obj.locked:
-                    self._notify("Reference: can't delete", kind="warn")
-                    self.metrics.log_action("X", latency,
-                                            blocked=True,
-                                            target=obj.label, kind=obj.kind)
-                elif protect is not None and obj.kind == protect:
-                    self._notify(f"{obj.kind.capitalize()} is protected",
-                                 kind="warn")
-                    self.metrics.log_action("X", latency,
-                                            blocked=True,
-                                            target=obj.label, kind=obj.kind)
-                else:
-                    self._push_history()
-                    obj.alive = False
-                    obj.slot  = None
-                    self.highlighted.discard(obj.id)
-                    self._notify(f"Deleted: {obj.label}", kind="X")
-                    self.metrics.log_action("X", latency,
-                                            target=obj.label, kind=obj.kind)
-                    # The Delete task completes when every non-target brick
-                    # is gone, so we have to re-check after each deletion.
-                    if self._check_answer():
-                        self._correct_t = time.time()
-                        self.metrics.end_task(completed=True)
+                self._push_history()
+                obj.alive = False
+                obj.slot  = None
+                self.highlighted.discard(obj.id)
+                self._notify(f"Deleted: {obj.label}")
+                self.metrics.log_action("X", latency,
+                                        target=obj.label, kind=obj.kind)
         elif self.mode == "Z":
             if self._history:
                 self._restore_snapshot(self._history.pop())
-                self._notify(f"Undo (steps left: {len(self._history)})",
-                             kind="Z")
+                self._notify(f"Undo (steps left: {len(self._history)})")
                 self.metrics.log_action("Z", latency,
                                         remaining=len(self._history))
-                # Undo task completes once the last snapshot has been
-                # popped and the full pre-deleted board is back.
-                if self._check_answer():
-                    self._correct_t = time.time()
-                    self.metrics.end_task(completed=True)
 
     # ── update ───────────────────────────────
 
@@ -1562,7 +1472,6 @@ class App:
         self._push(left_g)
 
         if r_lm:
-            # Pointer = weighted blend of index tip (8) and thumb tip (4).
             # ── Pointer: Heisenberg-robust pinch cursor ────────────────
             # AIM point (index-driven) — where the user aims while hovering.
             w = self.INDEX_WEIGHT
@@ -1610,34 +1519,44 @@ class App:
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
                 self._pinch_start_t = time.time()
-                # Reveal the gesture-guide panel only when the pinch
-                # lands inside the Instruction Panel rectangle. Pinches
-                # elsewhere (workspaces, sidebar) leave it hidden so it
-                # doesn't pop open every time the user grabs a brick.
-                # Each IP-area pinch is logged as a panel_open event,
-                # giving a session-level "how often did the user need a
-                # cheat-sheet refresher" count.
-                if (IP_X <= ix <= IP_X + IP_W
-                        and IP_Y <= iy <= IP_Y + IP_H):
-                    self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
-                    self.metrics.log_panel_open()
+                # Any pinch reveals the gesture-guide panel for a few
+                # seconds. Default is hidden so the UI stays clean.
+                self._guide_until_t = time.time() + self.GUIDE_REVEAL_S
 
-            # Anchor the cursor to the index fingertip in BOTH states so the
-            # aiming point doesn't shift when the thumb closes.
+            # Cursor used for hit-testing / dragging / paste placement.
             self._pinch_pt = (ix, iy)
 
             if self.mode == "open":
                 if new_pinch:
                     if not self._prev_pin:
                         hit = self._hit(ix, iy)
-                        # Locked reference bricks are not draggable; a
-                        # delete-protected kind (red in the Keep-only-red /
-                        # Undo tasks) can't be dragged out of place either,
-                        # silently. The open-mode pinch passes through both.
-                        protect = self.tasks[
-                            self.task_idx % len(self.tasks)].get("delete_protect")
-                        if (hit and not hit.locked
-                                and (protect is None or hit.kind != protect)):
+                        # Locked bricks are not draggable. The pinch
+                        # passes right through them — Task 3's reference
+                        # row stays put, Tasks 4/5's red heart stays put.
+                        if hit and hit.locked:
+                            self._notify("Locked; can't move", kind="warn")
+                            self.metrics.log_action(
+                                "drag", 0.0, blocked=True,
+                                target=hit.label, kind=hit.kind)
+                        elif hit and hit.spawner:
+                            # ENDLESS source: never move the spawner. Take
+                            # a snapshot first (so undo drops the clone),
+                            # then pull a fresh clone out and drag THAT.
+                            # The spawner stays put, ready to spawn again.
+                            self._push_history()
+                            clone = Shape(
+                                id    = self._next_id,
+                                px    = hit.px,
+                                py    = hit.py,
+                                w     = hit.w, h = hit.h,
+                                label = hit.label,
+                                kind  = hit.kind,
+                            )
+                            self._next_id += 1
+                            self.shapes.append(clone)
+                            self.dragging     = clone
+                            self._drag_offset = (clone.px - ix, clone.py - iy)
+                        elif hit:
                             # Snapshot BEFORE we mutate the picked-up
                             # brick, so undo can fully rewind the drag.
                             self._push_history()
@@ -1651,30 +1570,22 @@ class App:
                     if self.dragging:
                         s = self._nearest_slot(self.dragging.px, self.dragging.py)
                         if s is not None:
-                            # Don't let a drag EVICT a delete-protected brick
-                            # (red in Keep-only-red / Undo) from its slot —
-                            # refuse the snap so the protected piece stays put.
-                            protect = self.tasks[
-                                self.task_idx % len(self.tasks)].get("delete_protect")
-                            if protect is not None and any(
-                                    o.alive and o.slot == s and o.kind == protect
-                                    for o in self.shapes if o.id != self.dragging.id):
+                            # Eviction: if the target slot already holds
+                            # a locked brick, refuse to snap so the
+                            # protected piece isn't displaced. The
+                            # dragged brick is treated as a "not snapped"
+                            # release instead.
+                            blocked_by_locked = any(
+                                other.alive and other.slot == s and other.locked
+                                for other in self.shapes
+                                if other.id != self.dragging.id
+                            )
+                            if blocked_by_locked:
                                 s = None
                         if s is not None:
                             for other in self.shapes:
                                 if other.id != self.dragging.id and other.slot == s:
                                     other.slot = None
-                                    # Send the displaced brick back to the
-                                    # pool so its visual position matches
-                                    # its (now slot-less) logical state.
-                                    # Otherwise it keeps sitting at the
-                                    # slot's coordinates; if the user
-                                    # later X-deletes whatever displaced
-                                    # it, the original brick LOOKS like
-                                    # it's in the slot but actually has
-                                    # slot=None, so the correct-state
-                                    # green never turns on and the task
-                                    # can't complete.
                                     fx, fy = self._find_pool_free_pos()
                                     other.px, other.py = float(fx), float(fy)
                             self.dragging.slot = s
@@ -1906,14 +1817,16 @@ class App:
         notif_active = (self._notif
                         and time.time() - self._notif_t < self.NOTIF_S)
 
-        # Right-half wash only when an action actually fires. Standing
-        # mode (e.g. C-mode armed but no pinch yet) is intentionally NOT
-        # washed — the bar should react to events, not to the user just
-        # arming a gesture.
+        # Right-half wash whenever a notification fires. con_a is drag-
+        # only — modes never commit — so the wash is purely notif-driven
+        # (drag-blocked warnings, task transitions). Colour comes from
+        # MODE_BGR for parity with ut_b / ut_c.
         right_x = SF_X + SF_W * 9 // 20      # ~45% across the bar
         wash = None
         if notif_active and self._notif_kind is not None:
             wash = self.MODE_BGR.get(self._notif_kind)
+        elif self.mode != "open":
+            wash = self.MODE_BGR.get(self.mode, None)
         if wash is not None:
             ov = frame.copy()
             cv2.rectangle(ov, (right_x, SF_Y),
@@ -1952,95 +1865,16 @@ class App:
                          (235, 255, 220), 2)
 
     def _draw_instruction_panel(self, frame):
-        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Gesture Shortcuts")
-
-        # Hide the gesture cards by default. They reveal for
-        # GUIDE_REVEAL_S after any pinch, then fade back to hidden so
-        # the panel doesn't crowd the screen during normal play.
-        if time.time() >= self._guide_until_t:
-            hint = "Pinch to show gesture guide"
-            (tw, _), _ = cv2.getTextSize(hint, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.46, 1)
-            self._put(frame, hint,
-                      IP_X + (IP_W - tw) // 2,
-                      IP_Y + IP_H // 2 + 4,
-                      0.46, (140, 140, 135))
-            return
-
-        cards = [
-            ("C", "Copy",   self.MODE_BGR["C"]),
-            ("F", "Find",   self.MODE_BGR["F"]),
-            ("X", "Delete", self.MODE_BGR["X"]),
-            ("Z", "Undo",   self.MODE_BGR["Z"]),
-        ]
-        n = len(cards)
-        pad = 8
-        ix = IP_X + pad
-        iy = IP_Y + 38
-        iw = IP_W - 2 * pad
-        ih = IP_H - 46
-        cw = (iw - (n - 1) * pad) // n
-
-        # vertical split inside each card: photo on top, label below
-        LABEL_H = 22
-        IMG_PAD = 4
-
-        for i, (letter, label, color) in enumerate(cards):
-            x1 = ix + i * (cw + pad)
-            y1 = iy
-            x2 = x1 + cw
-            y2 = y1 + ih
-            active = (self.mode == letter)
-
-            # card background
-            if active:
-                self._fill(frame, x1, y1, x2, y2, color, 0.18)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-            else:
-                cv2.rectangle(frame, (x1, y1), (x2, y2),
-                              (235, 235, 230), -1)
-                cv2.rectangle(frame, (x1, y1), (x2, y2),
-                              (180, 180, 175), 1)
-
-            # photo region
-            img_x1 = x1 + IMG_PAD
-            img_x2 = x2 - IMG_PAD
-            img_y1 = y1 + IMG_PAD
-            img_y2 = y2 - LABEL_H - IMG_PAD
-            img = self._gesture_imgs.get(letter)
-
-            if img is not None:
-                sh, sw = img.shape[:2]
-                avail_w = img_x2 - img_x1
-                avail_h = img_y2 - img_y1
-                scale = min(avail_w / sw, avail_h / sh)
-                rw, rh = max(1, int(sw * scale)), max(1, int(sh * scale))
-                resized = cv2.resize(img, (rw, rh), interpolation=cv2.INTER_AREA)
-                ox = img_x1 + (avail_w - rw) // 2
-                oy = img_y1 + (avail_h - rh) // 2
-                frame[oy:oy + rh, ox:ox + rw] = resized
-            else:
-                # fallback: big letter
-                (lw, lh), _ = cv2.getTextSize(letter,
-                                              cv2.FONT_HERSHEY_SIMPLEX, 1.5, 4)
-                lx = x1 + (cw - lw) // 2
-                ly = img_y1 + (img_y2 - img_y1 + lh) // 2
-                self._put(frame, letter, lx, ly, 1.5,
-                          color if active else (90, 90, 85), 4)
-
-            # divider above label
-            cv2.line(frame, (x1 + 6, y2 - LABEL_H),
-                     (x2 - 6, y2 - LABEL_H),
-                     color if active else (200, 200, 195), 1)
-
-            # label text
-            (tw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX,
-                                          0.50, 1)
-            tx = x1 + (cw - tw) // 2
-            ty = y2 - 6
-            self._put(frame, label, tx, ty, 0.50,
-                      color if active else (65, 65, 60),
-                      2 if active else 1)
+        # Baseline 1: no gesture shortcuts available, so the panel just
+        # shows "Drag mode" centered. The panel frame is kept to preserve
+        # the overall layout (no shift in workspace sizes).
+        self._panel(frame, IP_X, IP_Y, IP_W, IP_H, "Mode")
+        label = "Drag mode"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.70, 2)
+        self._put(frame, label,
+                  IP_X + (IP_W - tw) // 2,
+                  IP_Y + (IP_H + th) // 2,
+                  0.70, (90, 90, 85), 2)
 
     def _draw_action_workspace(self, frame):
         self._panel(frame, AW_X, AW_Y, AW_W, AW_H, "Action Workspace")
@@ -2125,26 +1959,26 @@ class App:
             is_hl   = s.id in self.highlighted
             in_slot = s.slot is not None
 
-            # Locked reference bricks render with a distinct desaturated
-            # look so the user immediately sees "this is an example, not
-            # a piece to move". F-mode hover and same-kind highlight
-            # still show through so find still feels responsive.
+            # ENDLESS source: draw a little offset "stack" behind it so it
+            # reads as an infinite pile you keep pulling fresh bricks from.
+            if s.spawner and not in_slot:
+                for k in (2, 1):
+                    off = 5 * k
+                    draw_lego(frame, int(s.px) + off, int(s.py) - off,
+                              s.w, s.h, _shade(col, 0.6),
+                              alpha_body=0.95, border=(70, 70, 70),
+                              border_w=1, highlight=False, n_studs=2)
+
+            # Locked bricks render desaturated with a neutral outline
+            # so the user reads them as "fixed, not movable". An "EX"
+            # tag in the bottom-left further distinguishes them.
             if s.locked:
                 alpha = 0.60
-                if is_hov and self.mode == "F":
-                    border = self.MODE_BGR["F"]
-                    bw = 3
-                elif is_hl:
-                    border = (180, 105, 255)
-                    bw = 3
-                else:
-                    border = (140, 140, 140)
-                    bw = 2 if is_hov else 1
+                border = (140, 140, 140)
+                bw = 2 if is_hov else 1
                 draw_lego(frame, int(s.px), int(s.py), s.w, s.h, col,
                           alpha_body=alpha, border=border, border_w=bw,
                           highlight=False, n_studs=2)
-                # "EX" tag in the bottom-left so the label band reads
-                # "example" at a glance, distinct from pool bricks.
                 self._put(frame, "EX",
                           int(s.px - s.w / 2) + 4,
                           int(s.py + s.h / 2) - 4,

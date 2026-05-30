@@ -41,7 +41,7 @@ Install:  pip install opencv-python mediapipe numpy
 Run:      python asl_gesture5.py
 """
 
-import atexit, copy, csv, os, random, time, urllib.request
+import atexit, copy, csv, math, os, random, time, urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
@@ -296,6 +296,51 @@ def draw_mini_lego(frame, x1, y1, w, h, color, border_w=1):
                    _shade(color, 0.55), 1, cv2.LINE_AA)
     cv2.rectangle(frame, (x1, body_y1), (x2, y2),
                   _shade(color, 0.50), border_w, cv2.LINE_AA)
+
+# ──────────────────────────────────────────────
+#  One Euro Filter (1€, Casiez et al., CHI 2012)
+# ──────────────────────────────────────────────
+#  Speed-adaptive low-pass: heavy smoothing when the hand is slow (held
+#  pinch / drag => low jitter), light smoothing when fast (aiming => low
+#  lag). One instance per screen axis. MediaPipe ships no landmark
+#  smoothing, so we add it here. Tuning: lower min_cutoff => less jitter
+#  (more lag); raise beta => less lag at speed.
+
+class OneEuroFilter:
+    def __init__(self, min_cutoff=1.0, beta=0.02, d_cutoff=1.0):
+        self.min_cutoff = float(min_cutoff)
+        self.beta       = float(beta)
+        self.d_cutoff   = float(d_cutoff)
+        self._x_prev    = None
+        self._dx_prev   = 0.0
+        self._t_prev    = None
+
+    @staticmethod
+    def _alpha(cutoff, dt):
+        tau = 1.0 / (2.0 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, x, t):
+        if self._x_prev is None or self._t_prev is None:
+            self._x_prev, self._t_prev = x, t
+            return x
+        dt = t - self._t_prev
+        if dt <= 0.0:
+            dt = 1e-3
+        self._t_prev = t
+        # derivative, itself low-passed at d_cutoff
+        dx = (x - self._x_prev) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        dx_hat = a_d * dx + (1.0 - a_d) * self._dx_prev
+        self._dx_prev = dx_hat
+        # speed-adaptive cutoff for the signal itself
+        cutoff = self.min_cutoff + self.beta * abs(dx_hat)
+        a = self._alpha(cutoff, dt)
+        x_hat = a * x + (1.0 - a) * self._x_prev
+        self._x_prev = x_hat
+        return x_hat
+
+
 
 # ──────────────────────────────────────────────
 #  Data class
@@ -617,6 +662,16 @@ class App:
                          # for the slight right-bias of the thumb-index
                          # midpoint vs. where the user feels they're aiming.
     INDEX_WEIGHT = 0.50  # cursor = INDEX_WEIGHT*index + (1-INDEX_WEIGHT)*thumb (0.5 = midpoint)
+    # Stable-pinch anchor + One Euro Filter (see OneEuroFilter above).
+    ANCHOR_LM     = 5     # index-finger MCP knuckle — barely moves on pinch
+    PINCH_ARM = 0.11      # pinch_dist below this = "arming" (fingers
+                          # approaching). The cursor freezes here, before the
+                          # curl drift and before the real pinch (ON=0.055),
+                          # so the grab neither jumps nor slides down. Keep it
+                          # > PINCH_OFF so it stays armed through a held pinch.
+    OE_MIN_CUTOFF = 1.0   # lower => less jitter, more lag (held drag)
+    OE_BETA       = 0.02  # higher => less lag at speed (fast aiming)
+    OE_D_CUTOFF   = 1.0
     # Slot snap: brick snaps if it overlaps a slot by at least this fraction
     # of the BRICK's area — i.e. you don't have to land it dead-center.
     SNAP_THRESHOLD = 0.35
@@ -657,6 +712,14 @@ class App:
         self._pinch_pt:     Optional[tuple] = None
         self.r_pinch        = False
         self._prev_pin      = False
+        # Frozen aim->anchor offset captured when the fingers ARM (approach
+        # a pinch); while armed/held the cursor rides the stable index-MCP
+        # anchor + this offset, so the closing fingers don't drag it (the
+        # "Heisenberg effect") and there's no jump when the pinch engages.
+        self._pinch_off:    Optional[tuple] = None
+        # One Euro Filter per screen axis — removes residual landmark jitter.
+        self._filt_x = OneEuroFilter(self.OE_MIN_CUTOFF, self.OE_BETA, self.OE_D_CUTOFF)
+        self._filt_y = OneEuroFilter(self.OE_MIN_CUTOFF, self.OE_BETA, self.OE_D_CUTOFF)
         self._notif         = ""
         self._notif_t       = 0.0
         self._raw_frame     = None
@@ -1199,17 +1262,49 @@ class App:
 
         if r_lm:
             # Pointer = weighted blend of index tip (8) and thumb tip (4).
+            # ── Pointer: Heisenberg-robust pinch cursor ────────────────
+            # AIM point (index-driven) — where the user aims while hovering.
             w = self.INDEX_WEIGHT
-            ix = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W + self.PTR_X_OFFSET
-            iy = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
-            self.r_ptr = (ix, iy)
+            aim_x = (w * r_lm[8].x + (1 - w) * r_lm[4].x) * W + self.PTR_X_OFFSET
+            aim_y = (w * r_lm[8].y + (1 - w) * r_lm[4].y) * H - self.PTR_Y_OFFSET
 
-            # Hysteresis: lower threshold to engage, higher to release.
+            # STABLE anchor — the index MCP knuckle hardly moves when the
+            # fingers close, unlike the tips.
+            anc_x = r_lm[self.ANCHOR_LM].x * W
+            anc_y = r_lm[self.ANCHOR_LM].y * H
+
+            # Pinch detection with hysteresis (lower release threshold).
             pd = pinch_dist(r_lm)
             if self.r_pinch:
                 new_pinch = pd < self.PINCH_OFF
             else:
                 new_pinch = pd < self.PINCH_ON
+
+            # Decouple AIMING from CLICKING, jump-free. As soon as the
+            # fingers come within PINCH_ARM (approaching a pinch, before the
+            # curl drags the aim down), freeze the aim->anchor offset from the
+            # CURRENT aim and steer the cursor from the stable index-MCP
+            # anchor for the rest of the approach AND the held pinch.
+            # Capturing it at ARMING -- not at pinch detection -- means
+            # (a) NO jump when the pinch engages, since the cursor is already
+            # held here, and (b) no downward slide, since the offset is taken
+            # before the finger curls.
+            armed = pd < self.PINCH_ARM
+            if armed:
+                if self._pinch_off is None:
+                    self._pinch_off = (aim_x - anc_x, aim_y - anc_y)
+                cx_raw = anc_x + self._pinch_off[0]
+                cy_raw = anc_y + self._pinch_off[1]
+            else:
+                self._pinch_off = None
+                cx_raw, cy_raw = aim_x, aim_y
+
+            # One Euro Filter: kill slow-speed jitter (held drag) without
+            # adding lag during fast aiming.
+            t_now = time.monotonic()
+            ix = self._filt_x(cx_raw, t_now)
+            iy = self._filt_y(cy_raw, t_now)
+            self.r_ptr = (ix, iy)
 
             # Pinch-start timestamp for response latency
             if new_pinch and not self._prev_pin:
@@ -1845,7 +1940,7 @@ def main():
 
             raw    = cv2.flip(raw, 1)
             rgb    = cv2.cvtColor(raw, cv2.COLOR_BGR2RGB)
-            ts_ms  = int(cap.get(cv2.CAP_PROP_POS_MSEC))
+            ts_ms = int(time.monotonic() * 1000)
             mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
             result = landmarker.detect_for_video(mp_img, ts_ms)
 
