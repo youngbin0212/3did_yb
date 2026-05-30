@@ -304,6 +304,10 @@ TASK_DEFS = [
         ],
         "pool": [],
         "auto_delete_preserve": "red",
+        # Continuity: inherit Practice 4's board + undo history when reached
+        # straight from it, so the user undoes what THEY deleted. auto_delete
+        # above is the standalone fallback for a direct jump to Practice 5.
+        "continue_from_prev": True,
         "delete_protect": "red",
     },
 ]
@@ -773,7 +777,9 @@ class App:
     PINCH_ON  = 0.055
     PINCH_OFF = 0.075
     HIT_PAD   = 28        # extra px around a brick for forgiving targeting
-    HISTORY_MAX = 50       # number of undo steps Z mode can roll back
+    HISTORY_MAX = 70       # number of undo steps undo can roll back
+                           # (>= Practice 4's deletions so Practice 5 can
+                           # undo the whole continued board)
     GUIDE_REVEAL_S = 5.0   # how long the gesture-guide panel stays visible
                            # after a pinch (hidden by default the rest of
                            # the time so the panel doesn't crowd the UI).
@@ -823,6 +829,10 @@ class App:
 
     def __init__(self):
         self.task_idx       = 0
+        # Index of the task we last came FROM, so a continue_from_prev task
+        # (Practice 5 undo) knows whether it was reached straight off its
+        # predecessor (Practice 4) and should inherit that board + history.
+        self._prev_task_idx = -1
         self.shapes:        list[Shape] = []
         self.clipboard:     Optional[Shape] = None
         # Full-state undo history. Each entry is a snapshot of all
@@ -1097,12 +1107,30 @@ class App:
         self.metrics.end_task(completed=False)
 
         self._configure_slots()
+
+        t = self.tasks[self.task_idx % len(self.tasks)]
+
+        # Continuity: a task flagged `continue_from_prev` (Practice 5 undo)
+        # inherits the board AND undo history of the task right before it
+        # (Practice 4 delete) instead of resetting + auto-deleting, so the
+        # user undoes exactly what they just deleted. Only when arrived from
+        # the immediately-preceding task (natural advance OR a one-step jump
+        # off it) and a board exists; a far jump falls through to the normal
+        # standalone load (auto-delete) below.
+        if (t.get("continue_from_prev")
+                and self._prev_task_idx == self.task_idx - 1
+                and self.shapes):
+            self.clipboard = None
+            self.highlighted.clear()
+            self.dragging = None
+            self.metrics.start_task(self.task_idx, t["name"], len(t["layout"]))
+            return
+
         self.shapes = []
         self._history      = []
         self.clipboard = None
         self.highlighted.clear()
 
-        t = self.tasks[self.task_idx % len(self.tasks)]
         layout = t["layout"]
         pre_placed = t.get("pre_placed", [])
 
@@ -1221,6 +1249,7 @@ class App:
         return True
 
     def _next_task(self):
+        self._prev_task_idx = self.task_idx
         self.task_idx += 1
         self._correct_t = 0.0
         self._load_task()
@@ -1235,6 +1264,7 @@ class App:
         """Jump directly to task `idx` (0-based). No-op if out of range."""
         if not (0 <= idx < len(self.tasks)):
             return
+        self._prev_task_idx = self.task_idx
         self.task_idx  = idx
         self._correct_t = 0.0
         self._load_task()
@@ -2059,7 +2089,12 @@ class App:
             exp_col = SHAPE_COLORS[expected]
 
             if not correct:
-                fill_alpha = 0.28 if (is_drag_pv or is_paste_pv) else 0.10
+                # Goal swatch: was 0.10 alpha (washed-out vs the full-opacity
+                # bricks) so users couldn't tell the target hue matched the
+                # brick. Bump the fill and, for a plain empty slot, draw the
+                # border in the goal colour at full saturation so the target
+                # hue reads the same as a brick.
+                fill_alpha = 0.28 if (is_drag_pv or is_paste_pv) else 0.20
                 self._fill(frame, x1, y1, x2, y2, exp_col, fill_alpha)
 
             if correct:
@@ -2069,7 +2104,7 @@ class App:
             elif is_drag_pv:
                 slot_bc, slot_bw = (75, 235, 230), 3   # cyan
             else:
-                slot_bc, slot_bw = (155, 155, 150), 1
+                slot_bc, slot_bw = exp_col, 2          # goal colour, full sat
             cv2.rectangle(frame, (x1, y1), (x2, y2), slot_bc, slot_bw)
 
             if not correct:

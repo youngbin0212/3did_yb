@@ -1655,7 +1655,12 @@ class App:
             exp_col = SHAPE_COLORS[expected]
 
             if not correct:
-                fill_alpha = 0.28 if (is_drag_pv or is_paste_pv) else 0.10
+                # Goal swatch: was 0.10 alpha (washed-out vs the full-opacity
+                # bricks) so users couldn't tell the target hue matched the
+                # brick. Bump the fill and, for a plain empty slot, draw the
+                # border in the goal colour at full saturation so the target
+                # hue reads the same as a brick.
+                fill_alpha = 0.28 if (is_drag_pv or is_paste_pv) else 0.20
                 self._fill(frame, x1, y1, x2, y2, exp_col, fill_alpha)
 
             if correct:
@@ -1665,7 +1670,7 @@ class App:
             elif is_drag_pv:
                 slot_bc, slot_bw = (75, 235, 230), 3   # cyan
             else:
-                slot_bc, slot_bw = (155, 155, 150), 1
+                slot_bc, slot_bw = exp_col, 2          # goal colour, full sat
             cv2.rectangle(frame, (x1, y1), (x2, y2), slot_bc, slot_bw)
 
             if not correct:
